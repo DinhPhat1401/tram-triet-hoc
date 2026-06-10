@@ -31,7 +31,7 @@ const PHILOSOPHERS_DATA: Philosopher[] = [
     birthDeath: "1818 - 1883",
     epoch: "marxist",
     epochLabel: "Triết học Mác - Lênin",
-    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Karl_Marx_001.jpg/400px-Karl_Marx_001.jpg",
+    portraitUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTDx-iEZ0zw_il2_En3rUvMFWYnYCszcVhxkg&s",
     shortBio: "Nhà triết học, kinh tế học, xã hội học và nhà cách mạng lỗi lạc người Đức. Ông cùng Friedrich Engels sáng lập nên Chủ nghĩa duy vật biện chứng và Chủ nghĩa duy vật lịch sử, tạo nên bước ngoặt vĩ đại thay đổi căn bản tư duy triết học nhân loại.",
     coreThoughts: [
       "Chủ nghĩa duy vật biện chứng: Sự thống nhất biện chứng giữa vật chất và ý thức, trong đó vật chất quyết định ý thức phản ánh thế giới khách quan quan một cách sáng tạo.",
@@ -62,7 +62,7 @@ const PHILOSOPHERS_DATA: Philosopher[] = [
     birthDeath: "1820 - 1895",
     epoch: "marxist",
     epochLabel: "Triết học Mác - Lênin",
-    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Friedrich_Engels_portrait_%28cropped%29.jpg/400px-Friedrich_Engels_portrait_%28cropped%29.jpg",
+    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Friedrich_Engels%2C_c._1860_%28cropped%29.jpg/250px-Friedrich_Engels%2C_c._1860_%28cropped%29.jpg",
     shortBio: "Nhà triết học lớn người Đức, người bạn tri kỷ, đồng chí vĩ đại nhất của Các Mác. Engels đóng góp to lớn vào việc hệ thống hóa chủ nghĩa duy vật biện chứng thông qua việc tổng hợp tri thức khoa học tự nhiên đương thời.",
     coreThoughts: [
       "Phạm trù vấn đề cơ bản lớn của triết học: Định nghĩa rạch ròi mối quan hệ giữa tư duy và tồn tại, phân chia triết học thành hai phái chính là Duy vật và Duy tâm.",
@@ -93,7 +93,7 @@ const PHILOSOPHERS_DATA: Philosopher[] = [
     birthDeath: "1870 - 1924",
     epoch: "marxist",
     epochLabel: "Triết học Mác - Lênin",
-    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Lenin_CL.jpg/400px-Lenin_CL.jpg",
+    portraitUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQubjEAobczJywnFKGFeASTbcmt0EB0zrRvA&s",
     shortBio: "Lãnh tụ vĩ đại của phong trào cách mạng vô sản thế giới, người sáng lập Nhà nước Xô-viết đầu tiên trên thế giới. Ông bảo vệ kiên cường di sản của Mác-Engels trước các khuynh hướng xét lại và đưa triết học Mác sang một giai đoạn phát triển mới.",
     coreThoughts: [
       "Định nghĩa kinh điển về Vật chất: 'Vật chất là một phạm trù triết học dùng để chỉ thực tại khách quan được đem lại cho con người trong cảm giác'.",
@@ -124,7 +124,7 @@ const PHILOSOPHERS_DATA: Philosopher[] = [
     birthDeath: "~470 - 399 TCN",
     epoch: "antique",
     epochLabel: "Triết học Hy Lạp Cổ đại",
-    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Socrates_cropped.jpg/400px-Socrates_cropped.jpg",
+    portraitUrl: "https://cdn.britannica.com/69/75569-050-7AB67C4B/herm-Socrates-half-original-Greek-Capitoline-Museums.jpg",
     shortBio: "Bậc thầy lập thuyết tiên phong của triết học phương Tây thế giới cổ đại. Ông không viết bất kỳ cuốn sách nào mà chỉ thảo luận trực tiếp ngoài quảng trường Athens, kiến tạo nên phương pháp hộ sản triết học trứ danh của nhân loại.",
     coreThoughts: [
       "Phương pháp vấn đáp Socrates (Socratic Method): Đặt liên tục câu hỏi phản biện để bóc tách sự tự mãn giả hiệu, dẫn dắt đối phương tự nhìn thấy chân lý.",
@@ -150,7 +150,7 @@ const PHILOSOPHERS_DATA: Philosopher[] = [
     birthDeath: "~427 - 347 TCN",
     epoch: "antique",
     epochLabel: "Triết học Hy Lạp Cổ đại",
-    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Plato_Silanion_Musei_Capitolini_MC1377.jpg/400px-Plato_Silanion_Musei_Capitolini_MC1377.jpg",
+    portraitUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS36VwVAdCsbU90XxGFC4Ud3e3oYWN4sgcifQ&s",
     shortBio: "Học trò xuất sắc bậc nhất của Socrates, nhà triết học duy tâm khách quan vĩ đại bậc nhất thế giới cổ đại. Ông sáng lập Hàn lâm viện Athens (Academy), trường đại học đầu tiên của thế giới phương Tây.",
     coreThoughts: [
       "Thuyết ý niệm (Theory of Forms): Thế giới cảm giác vật chất ta nhìn thấy chỉ là cái bóng phản chiếu méo mó của thế giới Ý niệm hoàn hảo bất biến nằm ngoài không gian.",
@@ -180,7 +180,7 @@ const PHILOSOPHERS_DATA: Philosopher[] = [
     birthDeath: "384 - 322 TCN",
     epoch: "antique",
     epochLabel: "Triết học Hy Lạp Cổ đại",
-    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Aristotle_Altemps_Detail.jpg/400px-Aristotle_Altemps_Detail.jpg",
+    portraitUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScTcutzLzJBaaTSpYxho0l3AEQMxyZwaY0SQ&s",
     shortBio: "Nhà bác học, triết học bách khoa xuất sắc nhất toàn bộ lịch sử nhân loại thời cổ đại, nghiên cứu sinh tại Hàn lâm viện Plato suốt 20 năm. Ông là gia sư lỗi lạc định hình dũng khí chí hướng cho Hoàng đế Alexander Đại đế.",
     coreThoughts: [
       "Logic học hình thức: Phát minh tam đoạn luận (syllogism) làm công cụ vận hành lập luận đúng đắn chuẩn xác tuyệt đối.",
@@ -210,7 +210,7 @@ const PHILOSOPHERS_DATA: Philosopher[] = [
     birthDeath: "1596 - 1650",
     epoch: "classical",
     epochLabel: "Triết học Duy lý Thăng hoa",
-    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Frans_Hals_-_Portret_van_Ren%C3%A9_Descartes.jpg/400px-Frans_Hals_-_Portret_van_Ren%C3%A9_Descartes.jpg",
+    portraitUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSvSpdmilAKBOTTTu3vXNykeqtNxSqkQ79DeQ&s",
     shortBio: "Nhà toán học kiêm triết học cha đẻ của triết học phương Tây cận đại. Ông tách độc lập khỏi hệ thống giáo điều kinh viện bằng cách đặt Hoài nghi làm cơ sở đầu tiên tiếp cận thế giới tự nhiên thực nghiệm khoa học.",
     coreThoughts: [
       "Hoài nghi phương pháp luận (Methodological Doubt): Hoài nghi toàn bộ cảm xúc giác quan để đi tìm một chân lý bất biến không thể bị lay động.",
@@ -240,7 +240,7 @@ const PHILOSOPHERS_DATA: Philosopher[] = [
     birthDeath: "1724 - 1804",
     epoch: "classical",
     epochLabel: "Triết học Cổ điển Đức",
-    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Immanuel_Kant_%28painted_portrait%29.jpg/400px-Immanuel_Kant_%28painted_portrait%29.jpg",
+    portraitUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRrihNB-bdk9g91xMVNjMhxgoyMqin00REgiA&s",
     shortBio: "Đại triết gia vĩ đại nhất của phong trào Khai sáng Đức thế kỷ XVIII. Ông thực hiện một cuộc cách mạng Kopernik trong triết học bằng việc hòa trộn xuất sắc hai trường phái Duy lý mộng mị và Duy thực nghiệm nông cạn.",
     coreThoughts: [
       "Thuyết tri thức phê phán: Tâm trí không thụ động nhận thế giới mà tích cực đóng vai trò xây dựng cách thức nhìn nhận dựa trên Không gian & Thời gian bản năng.",
@@ -270,7 +270,7 @@ const PHILOSOPHERS_DATA: Philosopher[] = [
     birthDeath: "1770 - 1831",
     epoch: "classical",
     epochLabel: "Triết học Cổ điển Đức",
-    portraitUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Hegel_by_Schlesinger_1831.jpg/400px-Hegel_by_Schlesinger_1831.jpg",
+    portraitUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQBOCD4gVcOo87SFBzYpfWzjKlLax3-t-7mkA&s",
     shortBio: "Đỉnh cao chói bọi tinh hoa của duy tâm biện chứng Cổ điển Đức thế kỷ XIX. Ông xây dựng hệ thống bách khoa tri thức khổng lồ vĩ đại, nơi hiện thực lịch sử, tự nhiên và ý thức được coi là quá trình tự vận động vươn lên của Tinh thần tuyệt đối.",
     coreThoughts: [
       "Hệ thống phép biện chứng tinh vi vĩ đại: Coi sự phát triển thực hiện qua các bước 'Chính đề - Phản đề - Hợp đề', mâu thuẫn là nguồn động lực tự sinh của lịch sử loài người.",
