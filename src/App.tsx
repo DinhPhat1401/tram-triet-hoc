@@ -42,6 +42,7 @@ import { STATIONS_DATA, BOOKS_DATA, FORUM_THREADS } from "./data";
 import { Station, Book, DiscussionPost, UserProgress, Comment } from "./types";
 import PhilosophicalCursor from "./components/PhilosophicalCursor";
 import PhilosophersGallery from "./components/PhilosophersGallery";
+import FlappyPhilosopher from "./components/FlappyPhilosopher";
 import anhHocThuat from "./anh_hoc_thuat.png";
 import {
   collection,
@@ -64,7 +65,7 @@ import firebaseConfig from "../firebase-applet-config.json";
 
 export default function App() {
   // Navigation & View States
-  const [view, setView] = useState<"home" | "station" | "path" | "library" | "discussion" | "certificate">("home");
+  const [view, setView] = useState<"home" | "station" | "path" | "library" | "discussion" | "certificate" | "game">("home");
   const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   const [activeLessonIndex, setActiveLessonIndex] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1385,6 +1386,21 @@ export default function App() {
             </motion.button>
             <motion.button
               onClick={() => {
+                safeNavigate(() => {
+                  setView("game");
+                  setSelectedStationId(null);
+                });
+              }}
+              whileHover={{ y: -1, scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`font-medium py-1 text-sm transition-all border-b-2 hover:text-primary cursor-pointer ${
+                view === "game" ? "text-primary border-primary font-bold" : "text-neutral-500 border-transparent"
+              }`}
+            >
+              Trò Chơi
+            </motion.button>
+            <motion.button
+              onClick={() => {
                 const footerEl = document.getElementById("app-footer");
                 if (footerEl) {
                   footerEl.scrollIntoView({ behavior: "smooth" });
@@ -1399,22 +1415,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Intelligent live search bar */}
-            <div className="hidden lg:flex items-center bg-neutral-100 px-3.5 py-1.5 rounded-full border border-neutral-200 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-              <Search className="w-4 h-4 text-neutral-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={handleSearchChange}
-                placeholder="Tìm từ khóa: vật chất, mâu thuẫn..."
-                className="bg-transparent border-none outline-none text-xs px-2 w-44 text-primary focus:ring-0 placeholder:text-neutral-400"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="text-neutral-400 hover:text-neutral-600">
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
 
             {/* Quick dashboard trigger */}
             <button
@@ -1457,17 +1457,6 @@ export default function App() {
         {/* Mobile menu panel */}
         {mobileMenuOpen && (
           <div className="lg:hidden bg-white border-b border-neutral-200 px-6 py-4 flex flex-col gap-3">
-            {/* Mobile Search input */}
-            <div className="flex items-center bg-neutral-100 px-3 py-2 rounded-lg border border-neutral-200">
-              <Search className="w-4 h-4 text-neutral-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={handleSearchChange}
-                placeholder="Tìm từ khóa..."
-                className="bg-transparent border-none outline-none text-xs px-2 w-full text-primary"
-              />
-            </div>
 
             <button
               onClick={() => {
@@ -1527,6 +1516,18 @@ export default function App() {
               className="text-left font-medium py-2 text-sm text-neutral-700 hover:text-primary hover:pl-2 transition-all"
             >
               Diễn Đàn Học Tập
+            </button>
+            <button
+              onClick={() => {
+                safeNavigate(() => {
+                  setView("game");
+                  setSelectedStationId(null);
+                  setMobileMenuOpen(false);
+                });
+              }}
+              className="text-left font-medium py-2 text-sm text-neutral-700 hover:text-primary hover:pl-2 transition-all"
+            >
+              Trò Chơi Trí Tuệ
             </button>
             <button
               onClick={() => {
@@ -3430,6 +3431,26 @@ export default function App() {
       )}
 
       {/* FOOTER */}
+      {/* VIEW: GAME TAB */}
+      {view === "game" && (
+        <div className="min-h-[80vh] bg-neutral-50 py-12 px-4 md:px-12 flex flex-col items-center justify-center">
+          <div className="max-w-4xl mx-auto flex flex-col items-center">
+            <div className="mb-10 text-center">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase tracking-wider mb-3">
+                <Sparkles className="w-3 h-3 text-emerald-600" /> Thử Thách Giải Trí
+              </span>
+              <h2 className="font-serif text-3xl md:text-4xl text-primary font-bold">
+                Mini-Game: Flappy Philosopher
+              </h2>
+              <p className="font-sans text-neutral-600 text-sm mt-3 max-w-xl mx-auto">
+                Kiểm tra phản xạ và kiến thức triết học của bạn. Khi chim đụng cột, bạn sẽ có cơ hội hồi sinh nếu trả lời đúng câu hỏi.
+              </p>
+            </div>
+            <FlappyPhilosopher />
+          </div>
+        </div>
+      )}
+
       <footer id="app-footer" className="bg-primary text-white w-full py-12 mt-20 border-t border-white/10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 px-6 md:px-12 max-w-7xl mx-auto">
           <div className="space-y-4">
