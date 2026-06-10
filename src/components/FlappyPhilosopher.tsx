@@ -1,74 +1,148 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bird, AlertTriangle, Play, RefreshCw, BookOpen, CheckCircle, XCircle } from 'lucide-react';
+import { Bird, AlertTriangle, Play, RefreshCw, BookOpen, CheckCircle, XCircle, Star, ShieldAlert, Sparkles, Lock } from 'lucide-react';
 import { PHILOSOPHY_QUIZ, QuizQuestion } from '../data/quizData';
 
-const GRAVITY = 0.25;
-const JUMP_STRENGTH = -5.5;
-const PIPE_SPEED = 1.5;
-const PIPE_SPAWN_RATE = 160; // in frames
+const GRAVITY = 0.15;
+const JUMP_STRENGTH = -4.5;
+const BASE_PIPE_SPEED = 1.5;
+const BASE_PIPE_SPAWN_RATE = 160; // in frames
 const BIRD_SIZE = 36;
 const PIPE_WIDTH = 60;
 const GAP_SIZE = 180;
 const GAME_WIDTH = 400;
 const GAME_HEIGHT = 600;
+const STAR_SIZE = 24;
+
+const SKINS = {
+  bird: { icon: '🦅', name: 'Tân binh', requirement: 0 },
+  marx: { icon: '🧔🏻‍♂️', name: 'Karl Marx', requirement: 20 },
+  lenin: { icon: '👨🏻‍🦲', name: 'V.I. Lenin', requirement: 50 },
+};
+
+type SkinType = keyof typeof SKINS;
 
 export default function FlappyPhilosopher() {
-  const [gameState, setGameState] = useState<'idle' | 'playing' | 'quiz' | 'dead' | 'countdown'>('idle');
+  const [gameState, setGameState] = useState<'idle' | 'playing' | 'quiz' | 'boss_quiz' | 'dead' | 'countdown'>('idle');
   const [countdownValue, setCountdownValue] = useState(3);
   const [score, setScore] = useState(0);
-  const [bestScore, setBestScore] = useState(0);
+  const [bestScore, setBestScore] = useState(() => parseInt(localStorage.getItem('flappy_best') || '0', 10));
   const [currentQuiz, setCurrentQuiz] = useState<QuizQuestion | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
+  const [activeSkin, setActiveSkin] = useState<SkinType>('bird');
 
   // Use refs for high-frequency game state to avoid stale closures
+  const scoreRef = useRef(0);
   const birdY = useRef(GAME_HEIGHT / 2);
   const birdVelocity = useRef(0);
   const pipes = useRef<Array<{ x: number; topHeight: number; passed: boolean }>>([]);
+  const stars = useRef<Array<{ x: number; y: number; collected: boolean }>>([]);
+  const particles = useRef<Array<{ id: number; x: number; y: number; text: string; opacity: number; life: number }>>([]);
   const frameCount = useRef(0);
+  const particleIdCounter = useRef(0);
   const isInvulnerable = useRef(false);
   const invulnerableTimer = useRef(0);
+  const lastBossScore = useRef(-1);
   const requestRef = useRef<number>();
 
   // For rendering
   const [renderTrigger, setRenderTrigger] = useState(0);
 
+  useEffect(() => {
+    localStorage.setItem('flappy_best', bestScore.toString());
+  }, [bestScore]);
+
+  const addScore = (points: number) => {
+    scoreRef.current += points;
+    setScore(scoreRef.current);
+  };
+
+  const spawnParticle = (x: number, y: number, text: string) => {
+    particles.current.push({
+      id: particleIdCounter.current++,
+      x,
+      y,
+      text,
+      opacity: 1,
+      life: 60 // 1 second at 60fps
+    });
+  };
+
+  const startGame = useCallback(() => {
+    if (gameState === 'idle') {
+      setGameState('countdown');
+      setCountdownValue(3);
+    }
+  }, [gameState]);
+
   const jump = useCallback(() => {
     if (gameState === 'idle') {
-      setGameState('playing');
+      startGame();
     } else if (gameState === 'playing') {
       birdVelocity.current = JUMP_STRENGTH;
     }
-  }, [gameState]);
+  }, [gameState, startGame]);
 
   const resetGame = () => {
     birdY.current = GAME_HEIGHT / 2;
     birdVelocity.current = 0;
     pipes.current = [];
+    stars.current = [];
+    particles.current = [];
     frameCount.current = 0;
     isInvulnerable.current = false;
+    lastBossScore.current = -1;
+    scoreRef.current = 0;
     setScore(0);
-    setGameState('playing');
+    setGameState('idle');
     setSelectedAnswer(null);
     setIsAnswerCorrect(null);
   };
 
-  const spawnPipe = () => {
+  const spawnEntities = () => {
     const minHeight = 50;
     const maxHeight = GAME_HEIGHT - GAP_SIZE - 50;
     const topHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
     pipes.current.push({ x: GAME_WIDTH, topHeight, passed: false });
+
+    // 50% chance to spawn a star between pipes
+    if (Math.random() > 0.5) {
+      stars.current.push({
+        x: GAME_WIDTH + PIPE_WIDTH / 2 - STAR_SIZE / 2,
+        y: topHeight + GAP_SIZE / 2 - STAR_SIZE / 2,
+        collected: false
+      });
+    }
   };
 
-  const checkCollision = () => {
-    if (isInvulnerable.current) return false;
-
+  const checkCollisions = () => {
     const birdRect = {
       left: 50,
       right: 50 + BIRD_SIZE,
       top: birdY.current,
       bottom: birdY.current + BIRD_SIZE,
     };
+
+    // Check Star Collisions
+    stars.current.forEach(star => {
+      if (!star.collected) {
+        const starRect = {
+          left: star.x,
+          right: star.x + STAR_SIZE,
+          top: star.y,
+          bottom: star.y + STAR_SIZE,
+        };
+        // Shrink hitbox slightly for fairness
+        if (birdRect.right > starRect.left + 5 && birdRect.left < starRect.right - 5 &&
+            birdRect.bottom > starRect.top + 5 && birdRect.top < starRect.bottom - 5) {
+          star.collected = true;
+          addScore(2);
+          spawnParticle(star.x, star.y, "+2");
+        }
+      }
+    });
+
+    if (isInvulnerable.current) return false;
 
     // Ground or ceiling collision
     if (birdRect.bottom >= GAME_HEIGHT || birdRect.top <= 0) {
@@ -81,18 +155,11 @@ export default function FlappyPhilosopher() {
         left: pipe.x,
         right: pipe.x + PIPE_WIDTH,
       };
+      const topPipeRect = { bottom: pipe.topHeight };
+      const bottomPipeRect = { top: pipe.topHeight + GAP_SIZE };
 
-      const topPipeRect = {
-        bottom: pipe.topHeight,
-      };
-
-      const bottomPipeRect = {
-        top: pipe.topHeight + GAP_SIZE,
-      };
-
-      // Check horizontal overlap
-      if (birdRect.right > pipeRect.left && birdRect.left < pipeRect.right) {
-        // Check vertical overlap
+      // Shrink bird hitbox horizontally to make it less frustrating
+      if (birdRect.right - 5 > pipeRect.left && birdRect.left + 5 < pipeRect.right) {
         if (birdRect.top < topPipeRect.bottom || birdRect.bottom > bottomPipeRect.top) {
           return true;
         }
@@ -102,8 +169,8 @@ export default function FlappyPhilosopher() {
     return false;
   };
 
-  const triggerQuiz = () => {
-    setGameState('quiz');
+  const triggerQuiz = (isBoss: boolean = false) => {
+    setGameState(isBoss ? 'boss_quiz' : 'quiz');
     const randomQuiz = PHILOSOPHY_QUIZ[Math.floor(Math.random() * PHILOSOPHY_QUIZ.length)];
     setCurrentQuiz(randomQuiz);
   };
@@ -111,30 +178,54 @@ export default function FlappyPhilosopher() {
   const gameLoop = useCallback(() => {
     if (gameState !== 'playing') return;
 
+    // Boss Fight trigger logic
+    if (scoreRef.current > 0 && scoreRef.current % 100 === 0 && scoreRef.current !== lastBossScore.current) {
+      lastBossScore.current = scoreRef.current;
+      triggerQuiz(true);
+      return;
+    }
+
+    // Calculate current difficulty based on score
+    const currentSpeed = BASE_PIPE_SPEED + (scoreRef.current * 0.05);
+    const currentSpawnRate = Math.max(80, BASE_PIPE_SPAWN_RATE - Math.floor(scoreRef.current * 1.5));
+
     // Apply gravity
     birdVelocity.current += GRAVITY;
     birdY.current += birdVelocity.current;
 
     // Update pipes
     pipes.current.forEach((pipe) => {
-      pipe.x -= PIPE_SPEED;
-
-      // Score logic
+      pipe.x -= currentSpeed;
       if (!pipe.passed && pipe.x + PIPE_WIDTH < 50) {
         pipe.passed = true;
-        setScore((s) => s + 1);
+        addScore(1);
       }
     });
 
-    // Remove off-screen pipes
+    // Update stars
+    stars.current.forEach(star => {
+      star.x -= currentSpeed;
+    });
+
+    // Update particles
+    particles.current.forEach(p => {
+      p.y -= 1; // Float up
+      p.life -= 1;
+      p.opacity = p.life / 60;
+    });
+
+    // Cleanup arrays
     if (pipes.current.length > 0 && pipes.current[0].x + PIPE_WIDTH < 0) {
       pipes.current.shift();
     }
+    stars.current = stars.current.filter(s => s.x + STAR_SIZE > 0);
+    particles.current = particles.current.filter(p => p.life > 0);
 
-    // Spawn new pipes
+    // Spawn new entities
     frameCount.current++;
-    if (frameCount.current % PIPE_SPAWN_RATE === 0) {
-      spawnPipe();
+    if (frameCount.current >= currentSpawnRate) {
+      spawnEntities();
+      frameCount.current = 0;
     }
 
     // Handle invulnerability
@@ -146,13 +237,12 @@ export default function FlappyPhilosopher() {
     }
 
     // Check collision
-    if (checkCollision()) {
-      triggerQuiz();
+    if (checkCollisions()) {
+      triggerQuiz(false);
     }
 
     // Trigger re-render
     setRenderTrigger((prev) => prev + 1);
-
     requestRef.current = requestAnimationFrame(gameLoop);
   }, [gameState]);
 
@@ -186,7 +276,7 @@ export default function FlappyPhilosopher() {
       } else {
         setGameState('playing');
         isInvulnerable.current = true;
-        invulnerableTimer.current = 60; // 1 giây an toàn
+        invulnerableTimer.current = 60; // 1 second safe
       }
     }
     return () => clearTimeout(timer);
@@ -198,13 +288,17 @@ export default function FlappyPhilosopher() {
     setSelectedAnswer(index);
     const correct = index === currentQuiz.correctAnswerIndex;
     setIsAnswerCorrect(correct);
+    const isBoss = gameState === 'boss_quiz';
 
     setTimeout(() => {
       if (correct) {
-        // Xóa sạch các cột hiện tại để có không gian trống bay tiếp
+        if (isBoss) {
+          addScore(10);
+          spawnParticle(GAME_WIDTH/2, GAME_HEIGHT/2, "+10 BOSS!");
+        }
+
         pipes.current = [];
-        
-        // Spawn lại chim ở giữa màn hình
+        stars.current = [];
         birdVelocity.current = 0;
         birdY.current = GAME_HEIGHT / 2;
         
@@ -212,69 +306,95 @@ export default function FlappyPhilosopher() {
         setCountdownValue(3);
         setSelectedAnswer(null);
         setIsAnswerCorrect(null);
+        
+        if (isBoss) {
+          isInvulnerable.current = true;
+          invulnerableTimer.current = 300; // 5 seconds safe
+        }
       } else {
-        setBestScore(Math.max(bestScore, score));
+        setBestScore(Math.max(bestScore, scoreRef.current));
         setGameState('dead');
       }
-    }, 2500); // Wait 2.5s before continuing to read explanation
+    }, 2500);
+  };
+
+  // Determine Background CSS based on score (Eras of Philosophy)
+  const getBackgroundClass = () => {
+    if (score < 20) return 'bg-amber-100'; // Cổ đại
+    if (score < 40) return 'bg-slate-800'; // Trung cổ
+    if (score < 60) return 'bg-sky-200';   // Phục hưng / Cận đại
+    return 'bg-rose-900'; // Mác - Lênin / Hiện đại
+  };
+
+  const getEraElementColor = () => {
+    if (score < 20) return 'bg-yellow-500 shadow-[0_0_40px_rgba(234,179,8,0.5)]'; // Mặt trời chói Cổ đại
+    if (score < 40) return 'bg-gray-300 shadow-[0_0_40px_rgba(209,213,219,0.3)]'; // Trăng mờ Trung cổ
+    if (score < 60) return 'bg-yellow-400 shadow-[0_0_40px_rgba(250,204,21,0.5)]'; // Mặt trời Phục hưng
+    return 'bg-yellow-400 shadow-[0_0_40px_rgba(250,204,21,0.6)]'; // Ngôi sao / Hào quang đỏ
   };
 
   return (
     <div className="flex flex-col items-center w-full max-w-lg mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-neutral-100">
-      <div className="bg-amber-50 w-full p-4 border-b border-amber-100 flex justify-between items-center">
+      <div className="bg-amber-50 w-full p-4 border-b border-amber-100 flex justify-between items-center z-50">
         <h3 className="font-serif font-bold text-amber-900 flex items-center gap-2">
           <Bird className="w-5 h-5" /> Flappy Philosopher
         </h3>
         <div className="flex gap-4 font-bold text-neutral-600 font-mono">
           <span>Score: {score}</span>
-          <span>Best: {bestScore}</span>
+          <span className="text-amber-600">Best: {bestScore}</span>
         </div>
       </div>
 
       <div 
-        className="relative overflow-hidden bg-sky-100 select-none cursor-pointer"
+        className={`relative overflow-hidden transition-colors duration-1000 select-none cursor-pointer ${getBackgroundClass()}`}
         style={{ width: GAME_WIDTH, height: GAME_HEIGHT }}
         onMouseDown={jump}
         onTouchStart={(e) => { e.preventDefault(); jump(); }}
       >
-        {/* Background elements */}
-        <div className="absolute bottom-0 w-full h-24 bg-emerald-600 border-t-8 border-emerald-500 z-10"></div>
+        {/* Parallax Background Elements */}
+        <div className={`absolute top-10 right-20 w-16 h-16 rounded-full transition-colors duration-1000 ${getEraElementColor()}`}></div>
+        
+        {/* Mountains/Cityscape parallax */}
+        <div className="absolute bottom-24 w-[200%] h-32 flex opacity-40 transition-transform" style={{ transform: `translateX(-${(frameCount.current * 0.2) % 400}px)` }}>
+          <svg className="w-full h-full text-current" viewBox="0 0 800 100" preserveAspectRatio="none">
+            <path d="M0,100 L0,50 L50,80 L100,30 L150,70 L200,20 L250,60 L300,10 L350,50 L400,30 L450,80 L500,40 L550,90 L600,20 L650,70 L700,40 L750,80 L800,50 L800,100 Z" fill={score < 20 ? '#fde68a' : (score < 40 ? '#334155' : (score < 60 ? '#bae6fd' : '#9f1239'))} />
+          </svg>
+        </div>
+
+        {/* Ground */}
+        <div className="absolute bottom-0 w-[200%] h-24 bg-emerald-600 border-t-8 border-emerald-500 z-10 transition-transform" style={{ transform: `translateX(-${(frameCount.current * BASE_PIPE_SPEED) % 400}px)` }}></div>
         <div className="absolute bottom-0 w-full h-full opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2px)', backgroundSize: '30px 30px' }}></div>
 
         {/* Pipes */}
         {pipes.current.map((pipe, i) => (
           <React.Fragment key={i}>
-            {/* Top Pipe */}
-            <div 
-              className="absolute bg-green-500 border-4 border-green-700"
-              style={{
-                left: pipe.x,
-                top: 0,
-                width: PIPE_WIDTH,
-                height: pipe.topHeight,
-              }}
-            >
+            <div className="absolute bg-green-500 border-4 border-green-700" style={{ left: pipe.x, top: 0, width: PIPE_WIDTH, height: pipe.topHeight }}>
               <div className="absolute bottom-0 w-[110%] -left-[5%] h-6 bg-green-400 border-4 border-green-700"></div>
             </div>
-            {/* Bottom Pipe */}
-            <div 
-              className="absolute bg-green-500 border-4 border-green-700"
-              style={{
-                left: pipe.x,
-                top: pipe.topHeight + GAP_SIZE,
-                width: PIPE_WIDTH,
-                height: GAME_HEIGHT - (pipe.topHeight + GAP_SIZE),
-              }}
-            >
+            <div className="absolute bg-green-500 border-4 border-green-700" style={{ left: pipe.x, top: pipe.topHeight + GAP_SIZE, width: PIPE_WIDTH, height: GAME_HEIGHT - (pipe.topHeight + GAP_SIZE) }}>
               <div className="absolute top-0 w-[110%] -left-[5%] h-6 bg-green-400 border-4 border-green-700"></div>
             </div>
           </React.Fragment>
         ))}
 
-        {/* Bird */}
-        {(gameState === 'playing' || gameState === 'idle' || gameState === 'quiz' || gameState === 'countdown') && (
+        {/* Stars */}
+        {stars.current.map((star, i) => !star.collected && (
+          <div key={`star-${i}`} className="absolute z-10 text-amber-400 drop-shadow-md animate-pulse" style={{ left: star.x, top: star.y, width: STAR_SIZE, height: STAR_SIZE }}>
+            <Star fill="currentColor" className="w-full h-full" />
+          </div>
+        ))}
+
+        {/* Particles (VFX) */}
+        {particles.current.map((p) => (
+          <div key={p.id} className="absolute z-30 font-bold text-amber-300 text-lg drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] pointer-events-none transition-opacity" style={{ left: p.x, top: p.y, opacity: p.opacity }}>
+            {p.text}
+          </div>
+        ))}
+
+        {/* Player (Bird or Skin) */}
+        {(gameState === 'playing' || gameState === 'idle' || gameState === 'quiz' || gameState === 'boss_quiz' || gameState === 'countdown') && (
           <div
-            className="absolute z-20 transition-transform duration-75"
+            className="absolute z-20 transition-transform duration-75 flex items-center justify-center text-3xl"
             style={{
               left: 50,
               top: birdY.current,
@@ -284,20 +404,67 @@ export default function FlappyPhilosopher() {
               opacity: isInvulnerable.current ? (Math.floor(Date.now() / 100) % 2 === 0 ? 0.5 : 1) : 1
             }}
           >
-            <div className="w-full h-full bg-amber-400 rounded-full border-2 border-neutral-800 flex items-center justify-center relative overflow-hidden shadow-sm">
-              <div className="absolute top-1 right-2 w-2 h-2 bg-white rounded-full"><div className="w-1 h-1 bg-black rounded-full ml-1 mt-0.5"></div></div>
-              <div className="absolute top-4 -right-1 w-3 h-2 bg-orange-500 rounded-full"></div>
-            </div>
+            {activeSkin === 'bird' ? (
+              <div className="w-full h-full bg-amber-400 rounded-full border-2 border-neutral-800 flex items-center justify-center relative overflow-hidden shadow-[0_0_15px_rgba(251,191,36,0.6)]">
+                <div className="absolute top-1 right-2 w-2 h-2 bg-white rounded-full"><div className="w-1 h-1 bg-black rounded-full ml-1 mt-0.5"></div></div>
+                <div className="absolute top-4 -right-1 w-3 h-2 bg-orange-500 rounded-full"></div>
+              </div>
+            ) : (
+              <div className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                {SKINS[activeSkin].icon}
+              </div>
+            )}
+            
+            {/* Invulnerable Aura */}
+            {isInvulnerable.current && (
+              <div className="absolute inset-[-10px] border-2 border-emerald-400 rounded-full animate-ping opacity-50"></div>
+            )}
           </div>
         )}
 
-        {/* Idle Overlay */}
+        {/* Idle Overlay & Skin Selector */}
         {gameState === 'idle' && (
-          <div className="absolute inset-0 bg-black/40 z-30 flex flex-col items-center justify-center text-white p-6 text-center">
-            <Bird className="w-16 h-16 mb-4 text-amber-300" />
-            <h2 className="text-3xl font-bold font-serif mb-2">Flappy Philosopher</h2>
-            <p className="mb-6 opacity-90">Nhấn Space hoặc Click để bay.<br/>Đụng cột sẽ phải trả lời triết học!</p>
-            <button className="bg-amber-500 hover:bg-amber-400 text-neutral-900 font-bold px-8 py-3 rounded-full flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95">
+          <div className="absolute inset-0 bg-black/60 z-30 flex flex-col items-center justify-center text-white p-6 text-center backdrop-blur-sm">
+            <h2 className="text-4xl font-bold font-serif mb-2 text-amber-300 drop-shadow-lg">Flappy Philosopher</h2>
+            <p className="mb-6 opacity-90 text-sm leading-relaxed max-w-[280px]">
+              Nhấn Space hoặc Click để bay.<br/>
+              Thu thập <Star className="inline w-4 h-4 text-amber-400" fill="currentColor"/> để nhận thêm 2 điểm.<br/>
+              Vượt 100 điểm để khiêu chiến BOSS!
+            </p>
+
+            {/* Skins Selector */}
+            <div className="bg-white/10 rounded-xl p-4 mb-6 backdrop-blur-md border border-white/20">
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-200 mb-3">Chọn Nhân Vật</p>
+              <div className="flex gap-3">
+                {(Object.keys(SKINS) as SkinType[]).map(skinKey => {
+                  const skin = SKINS[skinKey];
+                  const isUnlocked = bestScore >= skin.requirement;
+                  const isSelected = activeSkin === skinKey;
+                  return (
+                    <button
+                      key={skinKey}
+                      disabled={!isUnlocked}
+                      onClick={(e) => { e.stopPropagation(); setActiveSkin(skinKey); }}
+                      className={`relative flex flex-col items-center justify-center w-16 h-16 rounded-xl transition-all ${
+                        isSelected ? 'bg-amber-500 border-2 border-white scale-110 shadow-lg' :
+                        isUnlocked ? 'bg-white/20 hover:bg-white/30 border border-transparent' :
+                        'bg-black/40 opacity-50 cursor-not-allowed border border-transparent'
+                      }`}
+                      title={isUnlocked ? skin.name : `Cần ${skin.requirement} điểm`}
+                    >
+                      <span className="text-2xl">{skin.icon}</span>
+                      {!isUnlocked && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-xl">
+                          <Lock className="w-5 h-5 text-neutral-300" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button className="bg-amber-500 hover:bg-amber-400 text-neutral-900 font-bold px-8 py-3 rounded-full flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(245,158,11,0.4)]">
               <Play className="w-5 h-5" fill="currentColor" /> Bắt đầu
             </button>
           </div>
@@ -306,36 +473,52 @@ export default function FlappyPhilosopher() {
         {/* Countdown Overlay */}
         {gameState === 'countdown' && (
           <div className="absolute inset-0 bg-black/40 z-30 flex flex-col items-center justify-center text-white">
-            <h2 className="text-8xl font-bold font-serif animate-bounce text-amber-400 drop-shadow-lg">
+            <h2 className="text-8xl font-bold font-serif animate-bounce text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.8)]">
               {countdownValue > 0 ? countdownValue : 'GO!'}
             </h2>
           </div>
         )}
 
-        {/* Quiz Modal Overlay */}
-        {gameState === 'quiz' && currentQuiz && (
-          <div className="absolute inset-0 bg-neutral-900/90 z-40 flex flex-col items-center justify-center p-4">
-            <div className="bg-white rounded-xl w-full max-w-sm p-5 shadow-2xl flex flex-col">
-              <div className="flex items-center gap-2 text-rose-600 mb-3 font-bold">
-                <AlertTriangle className="w-5 h-5" /> 
-                <span>BẠN VỪA ĐỤNG CỘT!</span>
+        {/* Quiz Modal Overlay (Normal & Boss) */}
+        {(gameState === 'quiz' || gameState === 'boss_quiz') && currentQuiz && (
+          <div className="absolute inset-0 bg-neutral-900/95 z-40 flex flex-col items-center justify-center p-4 backdrop-blur-md">
+            <div className={`rounded-xl w-full max-w-sm p-6 shadow-2xl flex flex-col relative overflow-hidden ${
+              gameState === 'boss_quiz' ? 'bg-gradient-to-b from-rose-950 to-neutral-900 border-2 border-rose-500' : 'bg-white border border-neutral-200'
+            }`}>
+              {/* Boss Background Glow */}
+              {gameState === 'boss_quiz' && (
+                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-600/20 blur-3xl rounded-full"></div>
+              )}
+
+              <div className={`flex items-center gap-2 font-bold mb-3 ${gameState === 'boss_quiz' ? 'text-rose-400' : 'text-rose-600'}`}>
+                {gameState === 'boss_quiz' ? <ShieldAlert className="w-6 h-6 animate-pulse" /> : <AlertTriangle className="w-5 h-5" />}
+                <span className="text-lg">{gameState === 'boss_quiz' ? 'BOSS FIGHT TRÍ TUỆ!' : 'BẠN VỪA ĐỤNG CỘT!'}</span>
               </div>
-              <p className="text-sm text-neutral-600 mb-4 italic">Trả lời đúng câu hỏi để được trao cơ hội sống lại:</p>
+              <p className={`text-sm mb-5 italic ${gameState === 'boss_quiz' ? 'text-rose-200/70' : 'text-neutral-600'}`}>
+                {gameState === 'boss_quiz' 
+                  ? 'Trả lời đúng để nhận 10 điểm và 5 giây bất tử!' 
+                  : 'Trả lời đúng câu hỏi để được trao cơ hội sống lại:'}
+              </p>
               
-              <h4 className="font-bold text-neutral-800 mb-4">{currentQuiz.question}</h4>
+              <h4 className={`font-bold text-lg mb-5 leading-relaxed ${gameState === 'boss_quiz' ? 'text-white' : 'text-neutral-800'}`}>
+                {currentQuiz.question}
+              </h4>
               
-              <div className="flex flex-col gap-2 mb-4">
+              <div className="flex flex-col gap-2.5 mb-5 relative z-10">
                 {currentQuiz.options.map((opt, i) => {
-                  let btnClass = "text-left px-3 py-2 text-sm rounded-lg border transition-all ";
+                  let btnClass = "text-left px-4 py-3 text-sm rounded-xl border-2 transition-all font-medium ";
+                  
                   if (selectedAnswer === null) {
-                    btnClass += "border-neutral-200 hover:bg-amber-50 hover:border-amber-300";
+                    btnClass += gameState === 'boss_quiz' 
+                      ? "border-rose-900/50 bg-neutral-900 text-neutral-300 hover:bg-rose-900 hover:border-rose-700" 
+                      : "border-neutral-200 bg-white hover:bg-amber-50 hover:border-amber-300";
                   } else {
                     if (i === currentQuiz.correctAnswerIndex) {
-                      btnClass += "bg-emerald-100 border-emerald-500 text-emerald-800"; // Correct
+                      btnClass += "bg-emerald-500 border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]"; // Correct
                     } else if (i === selectedAnswer) {
-                      btnClass += "bg-rose-100 border-rose-500 text-rose-800"; // Wrong selected
+                      btnClass += "bg-rose-500 border-rose-400 text-white"; // Wrong selected
                     } else {
-                      btnClass += "border-neutral-200 opacity-50"; // Not selected
+                      btnClass += gameState === 'boss_quiz' ? "border-transparent opacity-30 text-neutral-500" : "border-transparent opacity-40"; // Not selected
                     }
                   }
 
@@ -353,11 +536,19 @@ export default function FlappyPhilosopher() {
               </div>
 
               {selectedAnswer !== null && (
-                <div className={`p-3 rounded-lg text-sm flex items-start gap-2 ${isAnswerCorrect ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
-                  {isAnswerCorrect ? <CheckCircle className="w-5 h-5 shrink-0" /> : <XCircle className="w-5 h-5 shrink-0" />}
+                <div className={`p-4 rounded-xl text-sm flex items-start gap-3 relative z-10 ${
+                  isAnswerCorrect 
+                    ? (gameState === 'boss_quiz' ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-800') 
+                    : (gameState === 'boss_quiz' ? 'bg-rose-900/50 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-800')
+                }`}>
+                  {isAnswerCorrect ? <CheckCircle className="w-6 h-6 shrink-0" /> : <XCircle className="w-6 h-6 shrink-0" />}
                   <div>
-                    <p className="font-bold mb-1">{isAnswerCorrect ? 'Chính xác! Bạn được hồi sinh.' : 'Sai rồi! Kết thúc hành trình.'}</p>
-                    <p className="opacity-90">{currentQuiz.explanation}</p>
+                    <p className="font-bold text-base mb-1">
+                      {isAnswerCorrect 
+                        ? (gameState === 'boss_quiz' ? 'Xuất sắc! +10 Điểm & Nhận khiên.' : 'Chính xác! Bạn được hồi sinh.') 
+                        : 'Sai rồi! Hành trình kết thúc.'}
+                    </p>
+                    <p className="opacity-90 leading-relaxed mt-1.5">{currentQuiz.explanation}</p>
                   </div>
                 </div>
               )}
@@ -367,21 +558,27 @@ export default function FlappyPhilosopher() {
 
         {/* Dead Overlay */}
         {gameState === 'dead' && (
-          <div className="absolute inset-0 bg-black/60 z-30 flex flex-col items-center justify-center text-white p-6 text-center">
-            <h2 className="text-4xl font-bold font-serif mb-2 text-rose-400">Game Over</h2>
-            <p className="mb-6 opacity-90">Điểm số của bạn: <strong className="text-xl">{score}</strong></p>
+          <div className="absolute inset-0 bg-black/80 z-30 flex flex-col items-center justify-center text-white p-6 text-center backdrop-blur-sm">
+            <h2 className="text-5xl font-bold font-serif mb-2 text-rose-500 drop-shadow-[0_0_20px_rgba(244,63,94,0.5)]">Game Over</h2>
+            <div className="bg-white/10 rounded-2xl p-6 my-6 border border-white/20 w-full max-w-[240px]">
+              <p className="text-neutral-400 text-sm uppercase tracking-widest font-bold mb-1">Score</p>
+              <p className="text-4xl font-mono font-bold text-amber-400 mb-4">{score}</p>
+              <div className="h-px w-full bg-white/20 mb-4"></div>
+              <p className="text-neutral-400 text-xs uppercase tracking-widest font-bold mb-1">Best</p>
+              <p className="text-xl font-mono font-bold">{bestScore}</p>
+            </div>
             <button 
               onClick={(e) => { e.stopPropagation(); resetGame(); }}
-              className="bg-white hover:bg-neutral-100 text-neutral-900 font-bold px-8 py-3 rounded-full flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95"
+              className="bg-white hover:bg-neutral-100 text-neutral-900 font-bold px-10 py-4 rounded-full flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.2)]"
             >
-              <RefreshCw className="w-5 h-5" /> Chơi Lại
+              <RefreshCw className="w-5 h-5" /> Chơi Lại Từ Đầu
             </button>
           </div>
         )}
       </div>
 
-      <div className="bg-neutral-50 w-full p-4 border-t border-neutral-100 text-center text-xs text-neutral-500">
-        <BookOpen className="w-4 h-4 inline-block mr-1 opacity-60" />
+      <div className="bg-neutral-50 w-full p-4 border-t border-neutral-100 flex items-center justify-center gap-2 text-xs text-neutral-500">
+        <BookOpen className="w-4 h-4 opacity-60" />
         Sự thông thái là chiếc phao cứu sinh duy nhất của bạn.
       </div>
     </div>
