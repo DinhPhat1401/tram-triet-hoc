@@ -106,6 +106,7 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(auth.currentUser);
 
   const currentDisplayName = userProfile?.name || commenterName;
   const currentDisplayRole = userProfile?.role || commenterRole;
@@ -445,6 +446,8 @@ export default function App() {
 
   // Sync with Firestore
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    
     initFirebaseAuth(async (success, error) => {
       if (!success) {
         console.warn("Firebase Auth initialized in offline/fallback sandbox mode:", error);
@@ -470,8 +473,9 @@ export default function App() {
         return;
       }
       
-      if (auth.currentUser) {
-        if (auth.currentUser.isAnonymous) {
+      unsubscribe = auth.onAuthStateChanged(async (user) => {
+        setCurrentUser(user);
+        if (user && user.isAnonymous) {
           console.log("Found legacy anonymous session, signing out...");
           await signOut(auth);
           setUserProfile(null);
@@ -479,14 +483,25 @@ export default function App() {
           return;
         }
 
-        const currentUid = auth.currentUser.uid;
-        try {
-          const docRef = doc(db, "userProfiles", currentUid);
+        if (user) {
+          const currentUid = user.uid;
+          try {
+            const docRef = doc(db, "userProfiles", currentUid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
             console.log("Loaded student profile from Firestore:", data);
-            setUserProfile(data);
+            
+            // Fix partial profiles created by progress merge
+            const defaultName = user.displayName || user.email?.split('@')[0] || "Người dùng";
+            const fullProfile = {
+              ...data,
+              name: data.name || defaultName,
+              email: data.email || user.email || "",
+              role: data.role || "Sinh viên"
+            };
+            
+            setUserProfile(fullProfile);
             if (data.progress) {
               setProgress(data.progress);
             }
@@ -494,15 +509,20 @@ export default function App() {
             console.log("No profile on Firestore yet for this UID");
             setUserProfile(null);
           }
-        } catch (err) {
-          console.warn("Failed to fetch user profile, switching to Local Sandbox Mode:", err);
-          setIsFirebaseOffline(true);
+          } catch (err) {
+            console.warn("Failed to fetch user profile, switching to Local Sandbox Mode:", err);
+            setIsFirebaseOffline(true);
+          }
+        } else {
+          setUserProfile(null);
         }
-      } else {
-        setUserProfile(null);
-      }
-      setIsAuthReady(true);
+        setIsAuthReady(true);
+      });
     });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -1330,8 +1350,8 @@ export default function App() {
     <div id="root-app" className="min-h-screen bg-neutral-50 font-sans text-primary flex flex-col antialiased">
       <PhilosophicalCursor />
       <AuthModal 
-        isOpen={isAuthModalOpen || (isAuthReady && !auth.currentUser)} 
-        closable={!(isAuthReady && !auth.currentUser)}
+        isOpen={isAuthModalOpen || (isAuthReady && !isFirebaseOffline && !currentUser)} 
+        closable={!(isAuthReady && !isFirebaseOffline && !currentUser)}
         onClose={() => setIsAuthModalOpen(false)} 
         onSuccess={() => {
         // Additional refresh logic if needed

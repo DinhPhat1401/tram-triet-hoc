@@ -29,8 +29,17 @@ export default function UserProfileModal({ isOpen, onClose, uid }: UserProfileMo
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
-            setProfile(data);
-            setNewName(data.name || auth.currentUser?.displayName || "");
+            const defaultName = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || "Người dùng";
+            
+            const fullProfile = {
+              ...data,
+              name: data.name || defaultName,
+              email: data.email || auth.currentUser?.email || "",
+              role: data.role || "Sinh viên"
+            };
+            
+            setProfile(fullProfile);
+            setNewName(fullProfile.name);
           } else {
             console.warn("UserProfile không tồn tại, đang tạo mới...");
             const defaultName = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || "Người dùng";

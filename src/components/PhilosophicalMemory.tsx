@@ -347,11 +347,33 @@ export default function PhilosophicalMemory({ onBackToHub }: PhilosophicalMemory
       // Check for match
       if (card1.pairId === card2.pairId && card1.type !== card2.type) {
         // MATCH FOUND
+        const matchedStateCards = [...updatedCards];
+        matchedStateCards[firstIdx].isMatched = true;
+        matchedStateCards[secondIdx].isMatched = true;
+        const allMatched = matchedStateCards.every((card) => card.isMatched);
+
+        // Save score synchronously immediately to prevent loss if unmounted during animation
+        if (allMatched) {
+          const finalTime = timer;
+          const finalMoves = moves + 1;
+          const finalScore = Math.max(100, 10000 - (finalMoves * 100) - (finalTime * 15));
+          
+          setBestScore((currentBest) => {
+            if (finalScore > currentBest) {
+              localStorage.setItem("memory_best_score", finalScore.toString());
+              if (auth.currentUser) {
+                const uid = auth.currentUser.uid;
+                const docRef = doc(db, "userProfiles", uid);
+                setDoc(docRef, { uid, bestScores: { memory: finalScore } }, { merge: true }).catch(console.error);
+              }
+              return finalScore;
+            }
+            return currentBest;
+          });
+        }
+
         setTimeout(() => {
           playSound("match", soundEnabled);
-          const matchedStateCards = [...updatedCards];
-          matchedStateCards[firstIdx].isMatched = true;
-          matchedStateCards[secondIdx].isMatched = true;
           setCards(matchedStateCards);
           setSelectedCards([]);
 
@@ -365,27 +387,10 @@ export default function PhilosophicalMemory({ onBackToHub }: PhilosophicalMemory
             ]);
           }
 
-          // Check Win Condition
-          const allMatched = matchedStateCards.every((card) => card.isMatched);
+          // Check Win Condition UI updates
           if (allMatched) {
             setIsPlaying(false);
             playSound("victory", soundEnabled);
-            
-            // Save records
-            const finalTime = timer;
-            const finalMoves = moves + 1;
-            const finalScore = Math.max(100, 10000 - (finalMoves * 100) - (finalTime * 15));
-            
-            if (finalScore > bestScore) {
-              setBestScore(finalScore);
-              localStorage.setItem("memory_best_score", finalScore.toString());
-              
-              if (auth.currentUser) {
-                const uid = auth.currentUser.uid;
-                const docRef = doc(db, "userProfiles", uid);
-                setDoc(docRef, { uid, bestScores: { memory: finalScore } }, { merge: true }).catch(console.error);
-              }
-            }
           }
         }, 500);
       } else {

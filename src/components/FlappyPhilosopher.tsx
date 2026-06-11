@@ -36,6 +36,8 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
   const [activeSkin, setActiveSkin] = useState<SkinType>('bird');
+  const [revivesUsed, setRevivesUsed] = useState(0);
+  const MAX_REVIVES = 10;
   
   const [isFullscreen, setIsFullscreen] = useState(false);
   const gameContainerRef = useRef<HTMLDivElement | null>(null);
@@ -110,6 +112,30 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
     localStorage.setItem('flappy_best', bestScore.toString());
   }, [bestScore]);
 
+  const saveBestScoreIfNeeded = useCallback(() => {
+    if (scoreRef.current > 0) {
+      setBestScore((currentBest) => {
+        if (scoreRef.current > currentBest) {
+          localStorage.setItem('flappy_best', scoreRef.current.toString());
+          if (auth.currentUser) {
+            const uid = auth.currentUser.uid;
+            const docRef = doc(db, "userProfiles", uid);
+            setDoc(docRef, { uid, bestScores: { flappy: scoreRef.current } }, { merge: true }).catch(console.error);
+          }
+          return scoreRef.current;
+        }
+        return currentBest;
+      });
+    }
+  }, []);
+
+  // Save on unmount to prevent lost scores
+  useEffect(() => {
+    return () => {
+      saveBestScoreIfNeeded();
+    };
+  }, [saveBestScoreIfNeeded]);
+
   const addScore = (points: number) => {
     scoreRef.current += points;
     setScore(scoreRef.current);
@@ -155,6 +181,7 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
     setGameState('idle');
     setSelectedAnswer(null);
     setIsAnswerCorrect(null);
+    setRevivesUsed(0);
   };
 
   const spawnEntities = () => {
@@ -239,6 +266,7 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
     // Boss Fight trigger logic
     if (scoreRef.current > 0 && scoreRef.current % 100 === 0 && scoreRef.current !== lastBossScore.current) {
       lastBossScore.current = scoreRef.current;
+      saveBestScoreIfNeeded();
       triggerQuiz(true);
       return;
     }
@@ -296,7 +324,14 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
 
     // Check collision
     if (checkCollisions()) {
-      triggerQuiz(false);
+      saveBestScoreIfNeeded();
+      if (revivesUsed >= MAX_REVIVES) {
+        setGameState('dead');
+        setSelectedAnswer(null);
+        setIsAnswerCorrect(null);
+      } else {
+        triggerQuiz(false);
+      }
     }
 
     // Trigger re-render
@@ -353,6 +388,8 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
     if (isBoss) {
       addScore(10);
       spawnParticle(GAME_WIDTH/2, GAME_HEIGHT/2, "+10 BOSS!");
+    } else {
+      setRevivesUsed(prev => prev + 1);
     }
 
     pipes.current = [];
@@ -396,7 +433,10 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
       <div className="bg-amber-50 w-full p-4 border-b border-amber-100 flex justify-between items-center z-50 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <button
-            onClick={onBackToHub}
+            onClick={() => {
+              saveBestScoreIfNeeded();
+              onBackToHub();
+            }}
             className="p-1.5 bg-neutral-200/50 hover:bg-neutral-200 hover:text-neutral-800 rounded-lg text-neutral-600 transition flex items-center gap-1 text-[10px] cursor-pointer font-sans"
             title="Quay lại danh sách game"
           >
@@ -575,7 +615,7 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
                   <p className={`text-[10px] sm:text-xs mb-3 italic leading-normal ${gameState === 'boss_quiz' ? 'text-rose-200/60' : 'text-neutral-500'}`}>
                     {gameState === 'boss_quiz' 
                       ? 'Trả lời đúng để nhận 10 điểm và 5 giây bất tử!' 
-                      : 'Trả lời đúng câu hỏi để được trao cơ hội sống lại:'}
+                      : `Trả lời đúng câu hỏi để được trao cơ hội sống lại (còn ${MAX_REVIVES - revivesUsed} lần):`}
                   </p>
                 </>
               )}
@@ -643,17 +683,7 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
                   ) : (
                     <button
                       onClick={() => {
-                        const finalScore = Math.max(bestScore, scoreRef.current);
-                        if (scoreRef.current > bestScore) {
-                          setBestScore(scoreRef.current);
-                          localStorage.setItem('flappy_best', scoreRef.current.toString());
-                          
-                          if (auth.currentUser) {
-                            const uid = auth.currentUser.uid;
-                            const docRef = doc(db, "userProfiles", uid);
-                            setDoc(docRef, { uid, bestScores: { flappy: scoreRef.current } }, { merge: true }).catch(console.error);
-                          }
-                        }
+                        saveBestScoreIfNeeded();
                         setGameState('dead');
                         setSelectedAnswer(null);
                         setIsAnswerCorrect(null);
