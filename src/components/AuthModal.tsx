@@ -68,7 +68,6 @@ export default function AuthModal({ isOpen, onClose, onSuccess, closable = true 
             uid: user.uid,
             name: fullName.trim(),
             email: user.email,
-            role: "Sinh viên", // Mặc định
             createdAt: serverTimestamp()
           });
         } catch (firestoreErr) {

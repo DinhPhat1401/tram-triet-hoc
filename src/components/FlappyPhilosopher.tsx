@@ -48,14 +48,15 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
         try {
           const docRef = doc(db, "userProfiles", auth.currentUser!.uid);
           const snap = await getDoc(docRef);
-          if (snap.exists()) {
-            const flappyBest = snap.data().bestScores?.flappy || 0;
+          const bestFromDb = snap.exists() ? (snap.data().bestScores?.flappy || 0) : 0;
             setBestScore(prev => {
-              const newBest = Math.max(prev, flappyBest);
+              const newBest = Math.max(prev, bestFromDb);
               localStorage.setItem('flappy_best', newBest.toString());
+              if (prev > bestFromDb) {
+                setDoc(docRef, { uid: auth.currentUser!.uid, bestScores: { flappy: prev } }, { merge: true }).catch(console.error);
+              }
               return newBest;
             });
-          }
         } catch (e) {
           console.error("Lỗi lấy điểm cao Flappy:", e);
         }

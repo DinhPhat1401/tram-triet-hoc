@@ -35,7 +35,6 @@ export default function UserProfileModal({ isOpen, onClose, uid }: UserProfileMo
               ...data,
               name: data.name || defaultName,
               email: data.email || auth.currentUser?.email || "",
-              role: data.role || "Sinh viên"
             };
             
             setProfile(fullProfile);
@@ -47,7 +46,6 @@ export default function UserProfileModal({ isOpen, onClose, uid }: UserProfileMo
               uid: uid,
               name: defaultName,
               email: auth.currentUser?.email || "",
-              role: "Sinh viên",
             };
             try {
               // Create it in firestore so it exists for next time
@@ -60,7 +58,7 @@ export default function UserProfileModal({ isOpen, onClose, uid }: UserProfileMo
         } catch (e) {
           console.error("Failed to fetch profile", e);
           // Prevent infinite spinner on error
-          setProfile({ uid, name: "Lỗi tải dữ liệu", email: "", role: "Unknown" });
+          setProfile({ uid, name: "Lỗi tải dữ liệu", email: "" });
         }
       };
       fetchProfile();
@@ -335,6 +333,10 @@ export default function UserProfileModal({ isOpen, onClose, uid }: UserProfileMo
                   <button
                     onClick={async () => {
                       try {
+                        localStorage.removeItem('flappy_best');
+                        localStorage.removeItem('memory_best_score');
+                        localStorage.removeItem('penalty_best');
+                        localStorage.removeItem('tram_hoc_progress');
                         await signOut(auth);
                         onClose();
                       } catch (err) {

@@ -34,14 +34,15 @@ export default function PenaltyGoalkeeper({ onBackToHub }: PenaltyGoalkeeperProp
         try {
           const docRef = doc(db, "userProfiles", auth.currentUser!.uid);
           const snap = await getDoc(docRef);
-          if (snap.exists()) {
-            const penaltyBest = snap.data().bestScores?.penalty || 0;
+          const bestFromDb = snap.exists() ? (snap.data().bestScores?.penalty || 0) : 0;
             setBestScore(prev => {
-              const newBest = Math.max(prev, penaltyBest);
+              const newBest = Math.max(prev, bestFromDb);
               localStorage.setItem('penalty_best', newBest.toString());
+              if (prev > bestFromDb) {
+                setDoc(docRef, { uid: auth.currentUser!.uid, bestScores: { penalty: prev } }, { merge: true }).catch(console.error);
+              }
               return newBest;
             });
-          }
         } catch (e) {
           console.error("Lỗi lấy điểm cao Penalty:", e);
         }

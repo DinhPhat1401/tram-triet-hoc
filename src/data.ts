@@ -775,7 +775,6 @@ export const FORUM_THREADS: DiscussionPost[] = [
   {
     id: "t1",
     author: "PGS.TS. Nguyễn Văn Minh",
-    role: "Giảng viên",
     avatarColor: "bg-blue-850",
     title: "Ứng dụng Phép biện chứng Duy vật vào việc nhận thức Kinh tế số và Trí tuệ nhân tạo (AI)",
     content: "Chào các bạn sinh viên và đồng nghiệp, hiện nay Trí tuệ Nhân tạo (AI) đang tạo nên cuộc cách mạng công nghệ mới làm biến đổi sâu sắc thị trường lao động. Dưới góc nhìn duy vật lịch sử, đây chính là sự phát triển nhảy vọt của Lực lượng sản xuất (công cụ lao động trí tuệ). Vậy các bạn nghĩ thế nào về sự mác-xít trong mâu thuẫn giữa lực lượng sản xuất mới này và Quan hệ sản xuất hiện đại (sở hữu trí tuệ bản quyền, phân chia lợi nhuận công nghệ)? Chúng ta nghiên cứu thế nào từ quy luật mâu thuẫn này?",
@@ -785,7 +784,6 @@ export const FORUM_THREADS: DiscussionPost[] = [
       {
         id: "r1-1",
         author: "Trần Anh Tuấn",
-        role: "Người nghiên cứu",
         avatarColor: "bg-amber-600",
         content: "Em hoàn toàn đồng ý với thầy! Hệ thống bản quyền phần mềm tư hữu hiện nay đang bảo vệ lợi nhuận tập trung cho các Big Tech (Mỹ), hạn chế sự tiếp cận bình đẳng của các nước đang phát triển. Đây chính là biểu hiện QHSX tư nhân kìm hãm tính phổ biến mở của LLSX công nghệ AI đang muốn bộc phát.",
         timestamp: "2026-06-05 15:45"
@@ -793,7 +791,6 @@ export const FORUM_THREADS: DiscussionPost[] = [
       {
         id: "r1-2",
         author: "Lê Thị Thu Hương",
-        role: "Sinh viên",
         avatarColor: "bg-emerald-700",
         content: "Theo quy luật Lượng - Chất, khi chúng ta liên tục nạp dữ liệu khổng lồ (Lượng thay đổi) thì hành vi thông minh xuất thần xuất hiện (bước nhảy về Chất). AI bỗng nhiên có thể làm thơ, viết mã nguồn súc tích. Triết học duy vật biện chứng giải thích thực sự rất sát nghĩa vật lý hiện đại!",
         timestamp: "2026-06-06 08:12"
@@ -804,7 +801,6 @@ export const FORUM_THREADS: DiscussionPost[] = [
   {
     id: "t2",
     author: "ThS. Hoàng Quốc Khánh",
-    role: "Trợ lý học thuật",
     avatarColor: "bg-indigo-700",
     title: "Làm thế nào để phân biệt rõ nhất giữa Duy tâm khách quan và Duy tâm chủ quan?",
     content: "Nhiều bạn sinh viên đi thi thường lúng túng khi phân biệt hai trường phái này. Tóm tắt nhanh: Duy tâm chủ quan thổi phồng vai trò của CẢM GIÁC CÁ NHÂN bạn (ví dụ: George Berkeley nói 'tồn tại tức là được tri giác' - nếu tôi nhắm mắt lại thì cái bàn biến mất). Còn Duy tâm khách quan thổi phồng vai trò của một TINH THẦN KHÁCH QUAN CÓ TRƯỚC ngoài bạn (Ý niệm của Plato, Ý niệm tuyệt đối của Hegel, Thượng đế, lực sinh mệnh vô hình). Hãy cùng thảo luận thêm ví dụ thực tế nào!",
@@ -814,7 +810,6 @@ export const FORUM_THREADS: DiscussionPost[] = [
       {
         id: "r2-1",
         author: "Phạm Minh Đức",
-        role: "Sinh viên",
         avatarColor: "bg-teal-750",
         content: "Thầy ơi cho em hỏi, câu thành ngữ 'Mưu sự tại nhân, thành sự tại thiên' có phải mang màu sắc của Chủ nghĩa duy tâm khách quan không ạ? Vì cho rằng trời đất quyết định khách quan kết quả ngoài con người?",
         timestamp: "2026-06-04 11:22"
@@ -822,7 +817,6 @@ export const FORUM_THREADS: DiscussionPost[] = [
       {
         id: "r2-2",
         author: "ThS. Hoàng Quốc Khánh",
-        role: "Trợ lý học thuật",
         avatarColor: "bg-indigo-700",
         content: "Chính xác em nhé! 'Thiên' hay số mệnh ông Trời quyết định kết cục lịch sử chính là tư duy duy tâm khách quan sơ khai cổ xưa của triết học Á Đông.",
         timestamp: "2026-06-04 12:05"

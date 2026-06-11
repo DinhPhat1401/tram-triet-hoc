@@ -36,6 +36,7 @@ import {
   Loader2,
   AlertTriangle,
   Gamepad2,
+  Trophy,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { motion } from "motion/react";
@@ -48,6 +49,7 @@ import PhilosophicalMemory from "./components/PhilosophicalMemory";
 import PenaltyGoalkeeper from "./components/PenaltyGoalkeeper";
 import AuthModal from "./components/AuthModal";
 import UserProfileModal from "./components/UserProfileModal";
+import LeaderboardModal from "./components/LeaderboardModal";
 import anhHocThuat from "./anh_hoc_thuat.png";
 import {
   collection,
@@ -93,25 +95,22 @@ export default function App() {
   const [newPostCategory, setNewPostCategory] = useState("Khái luận triết học");
   const [newPostContent, setNewPostContent] = useState("");
   const [newPostAuthor, setNewPostAuthor] = useState(() => localStorage.getItem("tram_hoc_commenter_name") || "");
-  const [newPostRole, setNewPostRole] = useState<"Sinh viên" | "Người nghiên cứu">(() => (localStorage.getItem("tram_hoc_commenter_role") as any) || "Sinh viên");
-  const [showCreatePost, setShowCreatePost] = useState(false);
+    const [showCreatePost, setShowCreatePost] = useState(false);
   const [commentInput, setCommentInput] = useState("");
   const [commenterName, setCommenterName] = useState(() => localStorage.getItem("tram_hoc_commenter_name") || "");
-  const [commenterRole, setCommenterRole] = useState(() => localStorage.getItem("tram_hoc_commenter_role") || "Sinh viên");
-  const [showCommenterNameModal, setShowCommenterNameModal] = useState(false);
+    const [showCommenterNameModal, setShowCommenterNameModal] = useState(false);
   const [pendingPostIdToComment, setPendingPostIdToComment] = useState<string | null>(null);
   const [tempCommenterName, setTempCommenterName] = useState("");
-  const [tempCommenterRole, setTempCommenterRole] = useState<"Sinh viên" | "Người nghiên cứu">("Sinh viên");
-
+  
   // Auth Modals
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(auth.currentUser);
 
   const currentDisplayName = userProfile?.name || commenterName;
-  const currentDisplayRole = userProfile?.role || commenterRole;
-
+  
   // User Progress Local Persistence State
   const [progress, setProgress] = useState<UserProgress>(() => {
     const saved = localStorage.getItem("tram_hoc_progress");
@@ -499,10 +498,19 @@ export default function App() {
               ...data,
               name: data.name || defaultName,
               email: data.email || user.email || "",
-              role: data.role || "Sinh viên"
+              
             };
             
             setUserProfile(fullProfile);
+
+            // Auto-heal missing fields in Firestore so Leaderboard displays correctly
+            if (!data.name || !data.email) {
+              updateDoc(docRef, {
+                name: fullProfile.name,
+                email: fullProfile.email,
+                              }).catch(err => console.error("Auto-heal failed:", err));
+            }
+
             if (data.progress) {
               setProgress(data.progress);
             }
@@ -540,8 +548,7 @@ export default function App() {
             const postPayload = {
               id: post.id,
               author: post.author,
-              role: post.role,
-              avatarColor: post.avatarColor,
+                            avatarColor: post.avatarColor,
               title: post.title,
               content: post.content,
               category: post.category,
@@ -562,8 +569,7 @@ export default function App() {
               const replyPayload = {
                 id: rep.id,
                 author: rep.author,
-                role: rep.role,
-                avatarColor: rep.avatarColor,
+                                avatarColor: rep.avatarColor,
                 content: rep.content,
                 createdAt: serverTimestamp()
               };
@@ -595,7 +601,6 @@ export default function App() {
         posts.push({
           id: docSnap.id,
           author: d.author || "Khách",
-          role: d.role || "Sinh viên",
           avatarColor: d.avatarColor || "bg-neutral-400",
           title: d.title || "",
           content: d.content || "",
@@ -659,7 +664,6 @@ export default function App() {
         comments.push({
           id: docSnap.id,
           author: d.author || "Học viên",
-          role: d.role || "Thành viên Trạm Học",
           avatarColor: d.avatarColor || "bg-amber-500",
           content: d.content || "",
           timestamp: tsStr,
@@ -861,11 +865,8 @@ export default function App() {
 
     if (isFirebaseOffline) {
       localStorage.setItem("tram_hoc_commenter_name", name);
-      localStorage.setItem("tram_hoc_commenter_role", tempCommenterRole);
       setCommenterName(name);
-      setCommenterRole(tempCommenterRole);
       setNewPostAuthor(name);
-      setNewPostRole(tempCommenterRole);
       setShowCommenterNameModal(false);
       return;
     }
@@ -914,8 +915,7 @@ export default function App() {
         await setDoc(profileDocRef, {
           uid: currentUid,
           name: name,
-          role: tempCommenterRole,
-          createdAt: serverTimestamp()
+                    createdAt: serverTimestamp()
         });
       } catch (err) {
         console.error("Error creating new profile:", err);
@@ -929,8 +929,7 @@ export default function App() {
         try {
           await updateDoc(doc(db, "forumPosts", t.id), {
             author: name,
-            role: tempCommenterRole,
-            authorUid: currentUid
+                        authorUid: currentUid
           });
         } catch (err) {
           console.error(`Error updating post ${t.id}:`, err);
@@ -948,8 +947,7 @@ export default function App() {
             try {
               await updateDoc(doc(db, "forumPosts", t.id, "replies", replyDoc.id), {
                 author: name,
-                role: tempCommenterRole,
-                authorUid: currentUid
+                                authorUid: currentUid
               });
             } catch (err) {
               console.error(`Error updating reply ${replyDoc.id} in post ${t.id}:`, err);
@@ -995,11 +993,8 @@ export default function App() {
       }
 
       localStorage.setItem("tram_hoc_commenter_name", name);
-      localStorage.setItem("tram_hoc_commenter_role", tempCommenterRole);
       setCommenterName(name);
-      setCommenterRole(tempCommenterRole);
       setNewPostAuthor(name);
-      setNewPostRole(tempCommenterRole);
       
       setShowCommenterNameModal(false);
       setPendingPostIdToComment(null);
@@ -1028,8 +1023,7 @@ export default function App() {
     }
 
     const cleanAuthor = userProfile.name;
-    const currentRole = userProfile.role || "Sinh viên";
-    const avatarUrl = userProfile.avatarUrl || null;
+        const avatarUrl = userProfile.avatarUrl || null;
 
     const threadId = "thread-" + Date.now();
     const newPost = {
@@ -1358,6 +1352,7 @@ export default function App() {
         // Additional refresh logic if needed
       }} />
       <UserProfileModal isOpen={isUserProfileModalOpen} onClose={() => setIsUserProfileModalOpen(false)} uid={auth.currentUser?.uid || ""} />
+      <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setIsLeaderboardOpen(false)} />
       
       {/* Dynamic top navigation bar */}
       <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-primary/10 shadow-sm transition-all">
@@ -1492,6 +1487,8 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+
+
 
             {/* Auth/Profile Trigger */}
             {auth.currentUser ? (
@@ -1649,8 +1646,20 @@ export default function App() {
         )}
       </nav>
 
+      {/* Guest Warning Banner */}
+      {!currentUser && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 flex justify-center items-center shadow-sm relative z-40 mt-16 text-center">
+          <div className="flex items-center gap-2 max-w-7xl w-full mx-auto justify-center">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600" />
+            <p className="text-xs sm:text-sm">
+              Bạn đang truy cập ẩn danh. Hãy <button onClick={() => setIsAuthModalOpen(true)} className="font-bold underline text-amber-700 hover:text-amber-800 cursor-pointer">tạo tài khoản</button> để lưu trữ tiến độ học tập và ghi danh lên bảng xếp hạng nhé!
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Main Container */}
-      <main className="flex-grow pt-16">
+      <main className={`flex-grow ${!currentUser ? 'pt-0' : 'pt-16'}`}>
         {/* Search Overlay is active when text has been keyed in */}
         {searchQuery.trim() && (
           <div className="bg-neutral-50 py-10 px-4 md:px-12 border-b border-neutral-200">
@@ -3027,7 +3036,6 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         setTempCommenterName("");
-                        setTempCommenterRole("Sinh viên");
                         setIdentityError(null);
                         setShowCommenterNameModal(true);
                       }}
@@ -3450,7 +3458,17 @@ export default function App() {
       {/* FOOTER */}
       {/* VIEW: GAME TAB */}
       {view === "game" && (
-        <div className="min-h-[80vh] bg-neutral-50 py-12 px-4 md:px-12 flex flex-col items-center justify-center">
+        <div className="min-h-[80vh] bg-neutral-50 py-12 px-4 md:px-12 flex flex-col items-center justify-center relative">
+          
+          {/* Floating Leaderboard Button */}
+          <button
+            onClick={() => setIsLeaderboardOpen(true)}
+            className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer"
+            title="Bảng Xếp Hạng"
+          >
+            <Trophy className="w-5 h-5" />
+            <span className="font-bold text-sm hidden sm:block">Bảng Xếp Hạng</span>
+          </button>
           {selectedGameId === null ? (
             <div className="max-w-5xl mx-auto flex flex-col items-center w-full">
               {/* Header */}
@@ -3486,13 +3504,21 @@ export default function App() {
                     
                     <div className="h-px bg-neutral-100 my-4"></div>
 
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block text-left">Điểm nổi bật:</span>
-                      <ul className="text-xs text-neutral-600 space-y-1.5 list-disc pl-4 leading-normal text-left">
-                        <li>Đấu Boss trí tuệ ở các mốc điểm 100, 200, 300...</li>
-                        <li>Mở khóa nhân vật nổi tiếng như Karl Marx, Lenin.</li>
-                        <li>Yêu cầu phản xạ cao kết hợp trí tuệ triết học.</li>
-                      </ul>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 block text-left">Cách chơi & Luật chơi:</span>
+                        <p className="text-[11px] text-neutral-600 leading-relaxed text-left">
+                          Nhấp chuột/chạm màn hình để điều khiển chim bay qua các khoảng trống. Nếu đụng cột, bạn có 30s để trả lời đúng một câu hỏi triết học nhằm <b>hồi sinh</b> (tối đa 10 lần).
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block text-left">Đặc điểm nổi bật:</span>
+                        <ul className="text-[11px] text-neutral-600 space-y-1 list-disc pl-4 leading-normal text-left">
+                          <li>Lối chơi "try-hard" cuốn hút, thử thách phản xạ.</li>
+                          <li>Ôn tập kiến thức ngẫu nhiên cực kỳ hiệu quả.</li>
+                          <li>Tự động lưu kỷ lục điểm cao nhất của bạn.</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
 
@@ -3500,7 +3526,7 @@ export default function App() {
                     onClick={() => setSelectedGameId("flappy")}
                     className="w-full bg-primary hover:bg-neutral-900 text-white font-bold text-xs py-3.5 rounded-2xl transition-all shadow-md cursor-pointer mt-6 flex items-center justify-center gap-2 group-hover:bg-amber-600"
                   >
-                    Vào chơi ngay 🚀
+                    Vào chơi ngay
                   </button>
                 </div>
 
@@ -3522,13 +3548,21 @@ export default function App() {
 
                     <div className="h-px bg-neutral-100 my-4"></div>
 
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block text-left">Điểm nổi bật:</span>
-                      <ul className="text-xs text-neutral-600 space-y-1.5 list-disc pl-4 leading-normal text-left">
-                        <li>Luyện trí nhớ học thuật và giải nghĩa lý thuyết tức thì.</li>
-                        <li>Hiệu ứng âm thanh hấp dẫn, trực quan.</li>
-                        <li>Bảng thống kê kỷ lục thời gian tốt nhất lưu trữ cục bộ.</li>
-                      </ul>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 block text-left">Cách chơi & Luật chơi:</span>
+                        <p className="text-[11px] text-neutral-600 leading-relaxed text-left">
+                          Lật mở từng cặp thẻ bài. Nếu 2 thẻ chứa khái niệm và định nghĩa khớp nhau, thẻ sẽ biến mất. Lật sai sẽ bị úp lại. Hãy dọn sạch bàn chơi với số lượt lật ít nhất!
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block text-left">Đặc điểm nổi bật:</span>
+                        <ul className="text-[11px] text-neutral-600 space-y-1 list-disc pl-4 leading-normal text-left">
+                          <li>Rèn luyện trí nhớ không gian sắc bén.</li>
+                          <li>Giúp ghi nhớ sâu sắc các cặp phạm trù triết học.</li>
+                          <li>Bảng thống kê kỷ lục thời gian tốt nhất.</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
 
@@ -3536,7 +3570,7 @@ export default function App() {
                     onClick={() => setSelectedGameId("memory")}
                     className="w-full bg-primary hover:bg-neutral-900 text-white font-bold text-xs py-3.5 rounded-2xl transition-all shadow-md cursor-pointer mt-6 flex items-center justify-center gap-2 group-hover:bg-sky-600"
                   >
-                    Vào chơi ngay 🧩
+                    Vào chơi ngay
                   </button>
                 </div>
 
@@ -3558,13 +3592,21 @@ export default function App() {
                     
                     <div className="h-px bg-neutral-100 my-4"></div>
 
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block text-left">Điểm nổi bật:</span>
-                      <ul className="text-xs text-neutral-600 space-y-1.5 list-disc pl-4 leading-normal text-left">
-                        <li>Luyện trắc nghiệm 10 câu ngẫu nhiên.</li>
-                        <li>Điểm thưởng theo thời gian suy nghĩ (Time Bonus).</li>
-                        <li>Hiệu ứng cản phá bóng vui nhộn.</li>
-                      </ul>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block text-left">Cách chơi & Luật chơi:</span>
+                        <p className="text-[11px] text-neutral-600 leading-relaxed text-left">
+                          Đối mặt với 10 lượt sút luân lưu ngẫu nhiên. Mỗi lượt, bạn có 1 phút 30s để chọn đáp án đúng. Trả lời đúng thủ môn sẽ cản phá thành công, sai sẽ bị thủng lưới.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block text-left">Đặc điểm nổi bật:</span>
+                        <ul className="text-[11px] text-neutral-600 space-y-1 list-disc pl-4 leading-normal text-left">
+                          <li>Hệ thống 10 câu hỏi luôn được làm mới mỗi ván.</li>
+                          <li>Cộng điểm thưởng (Time Bonus) cho tốc độ suy nghĩ nhanh.</li>
+                          <li>Hiệu ứng bắt bóng đồ họa 2D sinh động, kịch tính.</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
 
@@ -3572,7 +3614,7 @@ export default function App() {
                     onClick={() => setSelectedGameId("penalty")}
                     className="w-full bg-primary hover:bg-neutral-900 text-white font-bold text-xs py-3.5 rounded-2xl transition-all shadow-md cursor-pointer mt-6 flex items-center justify-center gap-2 group-hover:bg-emerald-600"
                   >
-                    Vào chơi ngay 🧤
+                    Vào chơi ngay
                   </button>
                 </div>
               </div>

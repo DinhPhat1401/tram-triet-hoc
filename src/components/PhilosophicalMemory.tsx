@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { HelpCircle, RefreshCw, Timer, Award, CheckCircle2, Volume2, VolumeX, Maximize2, Minimize2, ArrowLeft, BookOpen, Sparkles } from "lucide-react";
+import { HelpCircle, RefreshCw, Timer, Award, CheckCircle2, Volume2, VolumeX, Maximize2, Minimize2, ArrowLeft, BookOpen, Sparkles, X } from "lucide-react";
 import { auth, db } from "../firebase";
 import { doc, updateDoc, getDoc, setDoc } from "firebase/firestore";
 
@@ -167,8 +167,10 @@ export default function PhilosophicalMemory({ onBackToHub }: PhilosophicalMemory
 
   const [bestScore, setBestScore] = useState(() => parseInt(localStorage.getItem("memory_best_score") || "0", 10));
 
+  const [isStudyPhase, setIsStudyPhase] = useState(true);
   const [isRevealPhase, setIsRevealPhase] = useState(false);
   const [revealCountdown, setRevealCountdown] = useState(10);
+  const [isVictoryModalDismissed, setIsVictoryModalDismissed] = useState(false);
 
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const gameContainerRef = useRef<HTMLDivElement | null>(null);
@@ -179,14 +181,15 @@ export default function PhilosophicalMemory({ onBackToHub }: PhilosophicalMemory
         try {
           const docRef = doc(db, "userProfiles", auth.currentUser!.uid);
           const snap = await getDoc(docRef);
-          if (snap.exists()) {
-            const memoryBest = snap.data().bestScores?.memory || 0;
+          const bestFromDb = snap.exists() ? (snap.data().bestScores?.memory || 0) : 0;
             setBestScore(prev => {
-              const newBest = Math.max(prev, memoryBest);
-              localStorage.setItem("memory_best_score", newBest.toString());
+              const newBest = Math.max(prev, bestFromDb);
+              localStorage.setItem('memory_best_score', newBest.toString());
+              if (prev > bestFromDb) {
+                setDoc(docRef, { uid: auth.currentUser!.uid, bestScores: { memory: prev } }, { merge: true }).catch(console.error);
+              }
               return newBest;
             });
-          }
         } catch (e) {
           console.error("Lỗi lấy điểm cao Memory:", e);
         }
@@ -263,15 +266,17 @@ export default function PhilosophicalMemory({ onBackToHub }: PhilosophicalMemory
     setMoves(0);
     setTimer(0);
     setIsPlaying(false); // Do not run timer yet
+    setIsStudyPhase(false);
     setIsRevealPhase(true);
     setRevealCountdown(10);
     setMatchedExplanations([]);
     setActiveExplanation(null);
+    setIsVictoryModalDismissed(false);
   };
 
   // Start game on mount
   useEffect(() => {
-    initializeGame();
+    // wait for study phase to complete before starting game
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
@@ -413,11 +418,76 @@ export default function PhilosophicalMemory({ onBackToHub }: PhilosophicalMemory
     return `${mins.toString().padStart(2, "0")}:${remainSecs.toString().padStart(2, "0")}`;
   };
 
+  if (isStudyPhase) {
+    return (
+      <div 
+        ref={gameContainerRef}
+        className={`w-full max-w-4xl mx-auto flex flex-col items-center justify-center bg-radial from-neutral-900 via-neutral-950 to-black p-4 md:p-6 rounded-3xl border border-white/10 shadow-2xl transition-all duration-300 font-sans overflow-y-auto ${
+          isFullscreen ? "fixed inset-0 z-[9999] rounded-none p-8" : "relative"
+        }`}
+      >
+        <div className="flex w-full justify-between items-center mb-6 z-10 bg-white/5 px-4 py-3 rounded-2xl border border-white/10">
+          <button
+            onClick={onBackToHub}
+            className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors cursor-pointer text-xs font-bold"
+          >
+            <ArrowLeft className="w-4 h-4" /> Quay lại
+          </button>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-amber-400" />
+            <h2 className="text-sm md:text-lg font-serif font-bold text-neutral-100">Trí Tuệ Đối Hoàn</h2>
+          </div>
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl text-neutral-300 hover:text-white transition cursor-pointer"
+            title={isFullscreen ? "Thu nhỏ" : "Phóng to"}
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+        </div>
+
+        <div className="z-10 w-full max-w-4xl bg-white/5 rounded-2xl border border-white/10 p-6 flex flex-col gap-6 text-center overflow-y-auto" style={{ maxHeight: "calc(100vh - 120px)" }}>
+          <div>
+            <h3 className="text-xl font-serif font-bold text-amber-400 mb-2">Ôn Tập Kiến Thức</h3>
+            <p className="text-sm text-neutral-300 max-w-2xl mx-auto leading-relaxed">Hãy đọc qua các cặp nhà triết học và quan điểm nổi bật dưới đây. Khi bạn đã sẵn sàng thử thách trí nhớ của mình, nhấn "Bắt đầu ghi nhớ" để vào trò chơi!</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {MEMORY_PAIRS.map((pair) => (
+              <div key={pair.id} className="bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col gap-3 text-left hover:bg-white/10 transition-colors">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] bg-white/5 p-2 rounded-xl border border-white/10">{pair.icon}</span>
+                  <div>
+                    <h4 className="font-serif font-bold text-amber-300 text-sm">{pair.philosopher}</h4>
+                    <p className="text-[10px] text-neutral-400 uppercase tracking-widest font-mono font-bold">{pair.concept}</p>
+                  </div>
+                </div>
+                
+                <div className="h-px w-full bg-gradient-to-r from-white/10 to-transparent"></div>
+                
+                <p className="text-xs text-neutral-300 leading-relaxed bg-white/5 p-3 rounded-xl border border-white/5">
+                  {pair.explanation}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={initializeGame}
+            className="w-full sm:w-auto mx-auto mt-2 bg-amber-500 hover:bg-amber-400 text-neutral-900 font-bold text-sm py-3.5 px-8 rounded-2xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+          >
+            Bắt đầu ghi nhớ 10s <Timer className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       ref={gameContainerRef}
-      className={`w-full max-w-4xl mx-auto flex flex-col items-center bg-radial from-neutral-900 via-neutral-950 to-black p-4 md:p-6 rounded-3xl border border-white/10 shadow-2xl transition-all duration-300 ${
-        isFullscreen ? "fixed inset-0 z-[9999] rounded-none p-8" : "relative"
+      className={`w-full max-w-4xl mx-auto flex flex-col items-center bg-radial from-neutral-900 via-neutral-950 to-black p-4 md:p-6 rounded-3xl border border-white/10 shadow-2xl transition-all duration-300 overflow-y-auto ${
+        isFullscreen ? "fixed inset-0 z-[9999] rounded-none p-4 md:p-8" : "relative"
       }`}
     >
       {/* HUD Bar */}
@@ -625,35 +695,50 @@ export default function PhilosophicalMemory({ onBackToHub }: PhilosophicalMemory
             )}
           </div>
 
-          {/* Victory Overlay inline */}
-          {!isPlaying && cards.length > 0 && cards.every(c => c.isMatched) && (
-            <div className="bg-gradient-to-br from-emerald-950/90 to-neutral-900 border border-emerald-500/50 rounded-2xl p-5 text-center space-y-4 animate-scale-up">
-              <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-2xl animate-bounce">
-                🎉
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-serif font-bold text-emerald-300 text-base">Học Thuyết Đã Hài Hòa!</h4>
-                <p className="text-xs text-neutral-300 leading-relaxed font-sans text-center">
-                  Chúc mừng bạn đã hoàn thành thử thách Lật Bài Triết Học trong <b>{formatTime(timer)}</b> với <b>{moves}</b> lượt lật.
-                </p>
-                <p className="text-xs text-amber-400 font-mono font-bold mt-2">
-                  Điểm số đạt được: {Math.max(100, 10000 - (moves * 100) - (timer * 15))}
-                </p>
-                {Math.max(100, 10000 - (moves * 100) - (timer * 15)) >= bestScore && bestScore > 0 && (
-                  <p className="text-[10px] text-emerald-400 font-bold animate-pulse mt-1">🎉 KỶ LỤC ĐIỂM SỐ MỚI!</p>
-                )}
-              </div>
-              
-              <button
-                onClick={initializeGame}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <RefreshCw className="w-4 h-4" /> Chơi Ván Mới
-              </button>
-            </div>
-          )}
+
         </div>
       </div>
+
+      {/* Victory Overlay Absolute Modal */}
+      {!isPlaying && cards.length > 0 && cards.every(c => c.isMatched) && !isVictoryModalDismissed && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in rounded-3xl">
+          <div className="bg-gradient-to-br from-emerald-950/95 to-neutral-900/95 border border-emerald-500/50 rounded-3xl p-8 max-w-sm w-full text-center space-y-6 shadow-2xl animate-scale-up relative">
+            <button
+              onClick={() => setIsVictoryModalDismissed(true)}
+              className="absolute top-4 right-4 text-emerald-500/50 hover:text-emerald-400 transition-colors p-1 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-3xl animate-bounce shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+              🎉
+            </div>
+            <div className="space-y-3">
+              <h4 className="font-serif font-bold text-emerald-300 text-2xl">Học Thuyết Hài Hòa!</h4>
+              <p className="text-sm text-neutral-300 leading-relaxed font-sans text-center">
+                Chúc mừng bạn đã hoàn thành thử thách Lật Bài Triết Học trong <b>{formatTime(timer)}</b> với <b>{moves}</b> lượt lật.
+              </p>
+              
+              <div className="bg-black/30 p-4 rounded-2xl border border-white/5 mt-4">
+                <p className="text-xs text-neutral-400 mb-1 uppercase tracking-widest font-bold">Điểm số đạt được</p>
+                <p className="text-3xl text-amber-400 font-mono font-bold drop-shadow-md">
+                  {Math.max(100, 10000 - (moves * 100) - (timer * 15))}
+                </p>
+              </div>
+
+              {Math.max(100, 10000 - (moves * 100) - (timer * 15)) >= bestScore && bestScore > 0 && (
+                <p className="text-xs text-emerald-400 font-bold animate-pulse mt-2 py-1 bg-emerald-500/10 rounded-lg inline-block px-3">🎉 KỶ LỤC ĐIỂM SỐ MỚI!</p>
+              )}
+            </div>
+            
+            <button
+              onClick={initializeGame}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 py-3.5 rounded-xl text-sm font-bold transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] cursor-pointer flex items-center justify-center gap-2 mt-4"
+            >
+              <RefreshCw className="w-5 h-5" /> Chơi Ván Mới
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Decorative background grid and gradients */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none rounded-3xl" style={{ backgroundImage: "radial-gradient(#fff 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
