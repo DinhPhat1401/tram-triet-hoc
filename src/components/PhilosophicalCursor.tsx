@@ -36,6 +36,7 @@ export default function PhilosophicalCursor() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mouseRef = useRef({ x: 0, y: 0, lastX: 0, lastY: 0, active: false });
   const particlesRef = useRef<Particle[]>([]);
+  const [isGameActive, setIsGameActive] = useState(false);
 
   // Keep track of theme and intensity in refs to avoid recreating event listeners or losing state in canvas loop
   const themeRef = useRef(theme);
@@ -54,8 +55,25 @@ export default function PhilosophicalCursor() {
     localStorage.setItem("tram_hoc_cursor_enabled", String(enabled));
   }, [enabled]);
 
+  // Listen to game active/inactive event
+  useEffect(() => {
+    const handleGameStatus = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setIsGameActive(!!customEvent.detail?.active);
+    };
+    window.addEventListener("game-status-changed", handleGameStatus);
+    return () => {
+      window.removeEventListener("game-status-changed", handleGameStatus);
+    };
+  }, []);
+
   // Mouse move handler
   useEffect(() => {
+    if (!enabled || isGameActive) {
+      mouseRef.current.active = false;
+      return;
+    }
+
     const handleMouseMove = (e: MouseEvent) => {
       mouseRef.current.x = e.clientX;
       mouseRef.current.y = e.clientY;
@@ -73,12 +91,12 @@ export default function PhilosophicalCursor() {
       window.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseleave", handleMouseLeave);
     };
-  }, []);
+  }, [enabled, isGameActive]);
 
   // Update canvas sizing & animation loop
   useEffect(() => {
-    if (!enabled) {
-      // Clear particles if disabled
+    if (!enabled || isGameActive) {
+      // Clear particles if disabled or game is active
       particlesRef.current = [];
       return;
     }

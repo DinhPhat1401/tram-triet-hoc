@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
 import { initializeFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 import firebaseConfig from "../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
@@ -8,34 +9,27 @@ export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 }, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
 export const auth = getAuth();
+export const storage = getStorage(app);
 
-// Initialize Anonymous Sign-In securely and silently
+export { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile };
+
+// Initialize Auth securely and silently
 export function initFirebaseAuth(onReady: (success: boolean, error?: Error) => void) {
   let hasCalledReady = false;
 
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      console.log("Logged in anonymously:", user.uid);
+      console.log("Logged in:", user.uid);
       if (!hasCalledReady) {
         hasCalledReady = true;
         onReady(true);
       }
     } else {
-      signInAnonymously(auth)
-        .then((credential) => {
-          console.log("Signed in anonymous credential:", credential.user.uid);
-          if (!hasCalledReady) {
-            hasCalledReady = true;
-            onReady(true);
-          }
-        })
-        .catch((error) => {
-          console.warn("Anonymous authentication initialization skipped - Using Local Sandbox Mode:", error);
-          if (!hasCalledReady) {
-            hasCalledReady = true;
-            onReady(false, error as Error);
-          }
-        });
+      console.log("No user is logged in.");
+      if (!hasCalledReady) {
+        hasCalledReady = true;
+        onReady(true);
+      }
     }
   });
 }

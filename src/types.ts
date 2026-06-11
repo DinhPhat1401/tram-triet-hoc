@@ -46,8 +46,8 @@ export interface Book {
 export interface Comment {
   id: string;
   author: string;
-  role: string;
   avatarColor: string;
+  avatarUrl?: string; // New field for user uploaded avatar
   content: string;
   timestamp: string;
   authorUid?: string | null;
@@ -56,8 +56,8 @@ export interface Comment {
 export interface DiscussionPost {
   id: string;
   author: string;
-  role: "Giảng viên" | "Trợ lý học thuật" | "Sinh viên" | "Người nghiên cứu";
   avatarColor: string;
+  avatarUrl?: string; // New field for user uploaded avatar
   title: string;
   content: string;
   timestamp: string;
@@ -75,4 +75,17 @@ export interface UserProgress {
   completedQuizzes: number[]; // stationIds
   savedQuotes: string[];
   readBooks: string[];
+}
+
+export interface UserProfile {
+  uid: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  progress?: UserProgress;
+  bestScores?: {
+    flappy?: number;
+    memory?: number;
+    penalty?: number;
+  };
 }

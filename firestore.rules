@@ -18,30 +18,32 @@ service cloud.firestore {
 
     // DiscussionPost Validation
     function isValidDiscussionPost(data) {
-      return data.keys().hasAll(['id', 'author', 'role', 'avatarColor', 'title', 'content', 'category', 'likes', 'repliesCount', 'createdAt'])
-        && (data.keys().size() == 10 || (data.keys().size() == 11 && data.keys().hasAll(['authorUid']) && data.authorUid is string && data.authorUid == request.auth.uid))
+      return data.keys().hasAll(['id', 'author', 'avatarColor', 'title', 'content', 'category', 'likes', 'repliesCount', 'createdAt'])
+        && data.keys().hasOnly(['id', 'author', 'avatarColor', 'title', 'content', 'category', 'likes', 'repliesCount', 'createdAt', 'authorUid', 'avatarUrl'])
         && data.id is string && data.id.size() <= 128
         && data.author is string && data.author.size() <= 100
-        && data.role is string && (data.role == 'Giảng viên' || data.role == 'Trợ lý học thuật' || data.role == 'Sinh viên' || data.role == 'Người nghiên cứu')
         && data.avatarColor is string && data.avatarColor.size() <= 50
         && data.title is string && data.title.size() <= 200
         && data.content is string && data.content.size() <= 5000
         && data.category is string && data.category.size() <= 100
         && (data.likes is int || data.likes is float) && data.likes >= 0
         && (data.repliesCount is int || data.repliesCount is float) && data.repliesCount >= 0
-        && data.createdAt == request.time;
+        && data.createdAt == request.time
+        && (!data.keys().hasAny(['authorUid']) || data.authorUid == null || (data.authorUid is string && data.authorUid == request.auth.uid))
+        && (!data.keys().hasAny(['avatarUrl']) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1000));
     }
 
     // Comment Validation
     function isValidComment(data) {
-      return data.keys().hasAll(['id', 'author', 'role', 'avatarColor', 'content', 'createdAt'])
-        && (data.keys().size() == 6 || (data.keys().size() == 7 && data.keys().hasAll(['authorUid']) && data.authorUid is string && data.authorUid == request.auth.uid))
+      return data.keys().hasAll(['id', 'author', 'avatarColor', 'content', 'createdAt'])
+        && data.keys().hasOnly(['id', 'author', 'avatarColor', 'content', 'createdAt', 'authorUid', 'avatarUrl'])
         && data.id is string && data.id.size() <= 128
         && data.author is string && data.author.size() <= 100
-        && data.role is string && data.role.size() <= 100
         && data.avatarColor is string && data.avatarColor.size() <= 50
         && data.content is string && data.content.size() <= 2000
-        && data.createdAt == request.time;
+        && data.createdAt == request.time
+        && (!data.keys().hasAny(['authorUid']) || data.authorUid == null || (data.authorUid is string && data.authorUid == request.auth.uid))
+        && (!data.keys().hasAny(['avatarUrl']) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1000));
     }
 
     // Like Document Validation
@@ -54,12 +56,13 @@ service cloud.firestore {
 
     // UserProfile Validation
     function isValidUserProfile(data) {
-      return data.keys().hasAll(['uid', 'name', 'role', 'createdAt'])
-        && data.keys().size() == 4
+      return data.keys().hasAll(['uid'])
         && data.uid is string && data.uid == request.auth.uid
-        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.role is string && (data.role == 'Sinh viên' || data.role == 'Người nghiên cứu')
-        && data.createdAt == request.time;
+        && (!data.keys().hasAny(['name']) || (data.name is string && data.name.size() <= 100))
+        && (!data.keys().hasAny(['email']) || (data.email is string))
+        && (!data.keys().hasAny(['avatarUrl']) || (data.avatarUrl is string))
+        && (!data.keys().hasAny(['progress']) || (data.progress is map))
+        && (!data.keys().hasAny(['bestScores']) || (data.bestScores is map));
     }
 
     // Collection: forumPosts
@@ -79,7 +82,6 @@ service cloud.firestore {
           // Action 1: Like / Unlike
           (
             request.resource.data.author == resource.data.author
-            && request.resource.data.role == resource.data.role
             && (request.resource.data.likes == resource.data.likes + 1 || request.resource.data.likes == resource.data.likes - 1)
             && request.resource.data.repliesCount == resource.data.repliesCount
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
@@ -88,7 +90,6 @@ service cloud.firestore {
           // Action 2: Add Comment
           (
             request.resource.data.author == resource.data.author
-            && request.resource.data.role == resource.data.role
             && request.resource.data.repliesCount == resource.data.repliesCount + 1
             && request.resource.data.likes == resource.data.likes
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['repliesCount'])
@@ -97,7 +98,6 @@ service cloud.firestore {
           // Action 3: Delete Comment
           (
             request.resource.data.author == resource.data.author
-            && request.resource.data.role == resource.data.role
             && request.resource.data.repliesCount == resource.data.repliesCount - 1
             && request.resource.data.likes == resource.data.likes
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['repliesCount'])
@@ -112,7 +112,7 @@ service cloud.firestore {
             )
             && request.resource.data.likes == resource.data.likes
             && request.resource.data.repliesCount == resource.data.repliesCount
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['author', 'role', 'authorUid'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['author', 'authorUid'])
             && request.resource.data.authorUid == request.auth.uid
           )
         );
@@ -133,7 +133,7 @@ service cloud.firestore {
         && request.resource.data.id == resource.data.id
         && request.resource.data.content == resource.data.content
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['author', 'role', 'authorUid'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['author', 'authorUid'])
         && request.resource.data.authorUid == request.auth.uid;
       allow delete: if isSignedIn(); // Allow deleting comment
     }
@@ -147,8 +147,8 @@ service cloud.firestore {
 
     // Collection: userProfiles
     match /userProfiles/{profileId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn() && isValidUserProfile(request.resource.data);
       allow update: if isSignedIn() && resource.data.uid == request.auth.uid && isValidUserProfile(request.resource.data);
       allow delete: if isSignedIn() && (resource == null || resource.data.uid == request.auth.uid);

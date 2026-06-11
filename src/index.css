@@ -23,6 +23,16 @@
     backdrop-filter: blur(12px);
     border: 1px solid rgba(26, 54, 93, 0.1);
   }
+
+  .transform-style-3d {
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
 }
 
 @media print {
