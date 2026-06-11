@@ -740,7 +740,10 @@ export default function App() {
       return;
     }
 
-    if (!auth.currentUser) return;
+    if (!auth.currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     const uid = auth.currentUser.uid;
     const likeDocRef = doc(db, "forumPosts", postId, "likes", uid);
     const postRef = doc(db, "forumPosts", postId);
@@ -1345,8 +1348,8 @@ export default function App() {
     <div id="root-app" className="min-h-screen bg-neutral-50 font-sans text-primary flex flex-col antialiased">
       <PhilosophicalCursor />
       <AuthModal 
-        isOpen={isAuthModalOpen || (isAuthReady && !isFirebaseOffline && !currentUser)} 
-        closable={!(isAuthReady && !isFirebaseOffline && !currentUser)}
+        isOpen={isAuthModalOpen} 
+        closable={true}
         onClose={() => setIsAuthModalOpen(false)} 
         onSuccess={() => {
         // Additional refresh logic if needed
@@ -2751,7 +2754,13 @@ export default function App() {
                     <motion.button
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setShowCreatePost(true)}
+                      onClick={() => {
+                        if (!auth.currentUser) {
+                          setIsAuthModalOpen(true);
+                        } else {
+                          setShowCreatePost(true);
+                        }
+                      }}
                       className="flex items-center gap-1 bg-primary text-white text-[11px] font-bold px-3 py-1.5 rounded-full cursor-pointer hover:bg-opacity-95 shadow-sm"
                     >
                       <Plus className="w-3.5 h-3.5" /> Tạo bài thảo luận
@@ -2936,37 +2945,49 @@ export default function App() {
                           </div>
 
                           {/* Write feedback input area */}
-                          <div className="pt-2">
-                            <div className="flex gap-3">
-                              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 font-bold shrink-0 border border-neutral-300">
-                                {currentDisplayName ? currentDisplayName.charAt(0).toUpperCase() : "?"}
+                          {auth.currentUser ? (
+                            <div className="pt-2">
+                              <div className="flex gap-3">
+                                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 font-bold shrink-0 border border-neutral-300">
+                                  {currentDisplayName ? currentDisplayName.charAt(0).toUpperCase() : "?"}
+                                </div>
+                                <input
+                                  type="text"
+                                  placeholder="Ghi nhận xét phản đối hoặc đồng ý tại đây..."
+                                  value={commentInput}
+                                  onChange={(e) => setCommentInput(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      handleAddComment(post.id);
+                                    }
+                                  }}
+                                  className="flex-1 text-xs border border-neutral-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-neutral-400"
+                                />
+                                <button
+                                  onClick={() => handleAddComment(post.id)}
+                                  disabled={!currentDisplayName || !commentInput.trim()}
+                                  className="bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer hover:bg-opacity-95 transition-all disabled:bg-neutral-300"
+                                >
+                                  Gửi phản hồi
+                                </button>
                               </div>
-                              <input
-                                type="text"
-                                placeholder="Ghi nhận xét phản đối hoặc đồng ý tại đây..."
-                                value={commentInput}
-                                onChange={(e) => setCommentInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    handleAddComment(post.id);
-                                  }
-                                }}
-                                className="flex-1 text-xs border border-neutral-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-neutral-400"
-                              />
+                              <div className="flex items-center justify-between gap-2 flex-wrap text-[10px] text-neutral-400 mt-1.5 leading-normal">
+                                <span>
+                                  ⚠️ Đăng nhận xét với tư cách: <strong className="text-neutral-700">{currentDisplayName || "Học viên ẩn danh"} </strong>
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="pt-4 mt-4 border-t border-neutral-100 flex items-center justify-between bg-amber-50/50 p-4 rounded-xl border-amber-100">
+                              <span className="text-xs text-amber-800 font-medium">Bạn cần có tài khoản để tham gia bình luận.</span>
                               <button
-                                onClick={() => handleAddComment(post.id)}
-                                disabled={!currentDisplayName}
-                                className="bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer hover:bg-opacity-95 transition-all disabled:bg-neutral-300"
+                                onClick={() => setIsAuthModalOpen(true)}
+                                className="bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer hover:bg-amber-700 transition-all shadow-sm"
                               >
-                                Gửi phản hồi
+                                Đăng nhập ngay
                               </button>
                             </div>
-                            <div className="flex items-center justify-between gap-2 flex-wrap text-[10px] text-neutral-400 mt-1.5 leading-normal">
-                              <span>
-                                ⚠️ Đăng nhận xét với tư cách: <strong className="text-neutral-700">{currentDisplayName || "Học viên ẩn danh"} </strong>
-                              </span>
-                            </div>
-                          </div>
+                          )}
                         </div>
 
                       </div>
