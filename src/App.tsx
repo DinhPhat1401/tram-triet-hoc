@@ -45,6 +45,8 @@ import PhilosophicalCursor from "./components/PhilosophicalCursor";
 import PhilosophersGallery from "./components/PhilosophersGallery";
 import FlappyPhilosopher from "./components/FlappyPhilosopher";
 import PhilosophicalMemory from "./components/PhilosophicalMemory";
+import AuthModal from "./components/AuthModal";
+import UserProfileModal from "./components/UserProfileModal";
 import anhHocThuat from "./anh_hoc_thuat.png";
 import {
   collection,
@@ -62,7 +64,7 @@ import {
   getDoc,
   where
 } from "firebase/firestore";
-import { db, auth, initFirebaseAuth, OperationType, handleFirestoreError } from "./firebase";
+import { db, auth, initFirebaseAuth, OperationType, handleFirestoreError, signOut } from "./firebase";
 import firebaseConfig from "../firebase-applet-config.json";
 
 export default function App() {
@@ -99,6 +101,14 @@ export default function App() {
   const [pendingPostIdToComment, setPendingPostIdToComment] = useState<string | null>(null);
   const [tempCommenterName, setTempCommenterName] = useState("");
   const [tempCommenterRole, setTempCommenterRole] = useState<"Sinh viên" | "Người nghiên cứu">("Sinh viên");
+
+  // Auth Modals
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  const currentDisplayName = userProfile?.name || commenterName;
+  const currentDisplayRole = userProfile?.role || commenterRole;
 
   // User Progress Local Persistence State
   const [progress, setProgress] = useState<UserProgress>(() => {
@@ -164,6 +174,11 @@ export default function App() {
   });
 
   const handleDownloadCertificate = async () => {
+    if (!auth.currentUser || !userProfile?.name) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    const safeStudentName = userProfile.name;
     setIsDownloadingCert(true);
     // Tiny delay to show the loader nicely
     await new Promise((resolve) => setTimeout(resolve, 400));
@@ -261,12 +276,12 @@ export default function App() {
       // Student Name with elegant styling
       ctx.fillStyle = "#002045"; // primary
       ctx.font = "bold 36px 'Playfair Display', 'Georgia', 'Times New Roman', serif";
-      ctx.fillText(studentName.toUpperCase(), canvas.width / 2, 380);
+      ctx.fillText(safeStudentName.toUpperCase(), canvas.width / 2, 380);
 
       // Decorative name underline
       ctx.strokeStyle = "#f59e0b"; // amber-500
       ctx.lineWidth = 1.5;
-      const nameWidth = ctx.measureText(studentName.toUpperCase()).width;
+      const nameWidth = ctx.measureText(safeStudentName.toUpperCase()).width;
       ctx.beginPath();
       ctx.moveTo(canvas.width / 2 - nameWidth / 2 - 15, 410);
       ctx.lineTo(canvas.width / 2 + nameWidth / 2 + 15, 410);
@@ -333,7 +348,7 @@ export default function App() {
       // 6. Attempt a direct programmatic download trigger
       try {
         const link = document.createElement("a");
-        link.download = `Chung_Nhan_Tram_Hoc_${studentName.trim().replace(/\s+/g, "_")}.png`;
+        link.download = `Chung_Nhan_Tram_Hoc_${safeStudentName.trim().replace(/\s+/g, "_")}.png`;
         link.href = generatedDataUrl;
         document.body.appendChild(link);
         link.click();
@@ -402,10 +417,13 @@ export default function App() {
     }
   };
 
-  // Save progress to local storage
+  // Save progress to local storage and Firestore
   useEffect(() => {
     localStorage.setItem("tram_hoc_progress", JSON.stringify(progress));
-  }, [progress]);
+    if (auth.currentUser) {
+      setDoc(doc(db, "userProfiles", auth.currentUser.uid), { uid: auth.currentUser.uid, progress: progress }, { merge: true }).catch(console.error);
+    }
+  }, [progress, auth.currentUser]);
 
   // Turn off cursor effect when playing game
   useEffect(() => {
@@ -427,7 +445,7 @@ export default function App() {
 
   // Sync with Firestore
   useEffect(() => {
-    initFirebaseAuth((success, error) => {
+    initFirebaseAuth(async (success, error) => {
       if (!success) {
         console.warn("Firebase Auth initialized in offline/fallback sandbox mode:", error);
         setIsFirebaseOffline(true);
@@ -448,34 +466,40 @@ export default function App() {
             setMyLikes(JSON.parse(savedLikes));
           } catch (e) {}
         }
-      } else if (auth.currentUser) {
-        // Fetch user profile from Firestore to initialize commenterName/role automatically
+        setIsAuthReady(true);
+        return;
+      }
+      
+      if (auth.currentUser) {
+        if (auth.currentUser.isAnonymous) {
+          console.log("Found legacy anonymous session, signing out...");
+          await signOut(auth);
+          setUserProfile(null);
+          setIsAuthReady(true);
+          return;
+        }
+
         const currentUid = auth.currentUser.uid;
-        const profileQuery = query(collection(db, "userProfiles"), where("uid", "==", currentUid));
-        getDocs(profileQuery)
-          .then((profileSnapshot) => {
-            if (!profileSnapshot.empty) {
-              const profileDoc = profileSnapshot.docs[0];
-              const profileData = profileDoc.data();
-              console.log("Loaded student profile from Firestore:", profileData);
-              if (profileData.name) {
-                setCommenterName(profileData.name);
-                setNewPostAuthor(profileData.name);
-                localStorage.setItem("tram_hoc_commenter_name", profileData.name);
-              }
-              if (profileData.role) {
-                setCommenterRole(profileData.role);
-                setNewPostRole(profileData.role);
-                localStorage.setItem("tram_hoc_commenter_role", profileData.role);
-              }
-            } else {
-              console.log("No profile on Firestore yet for this UID");
+        try {
+          const docRef = doc(db, "userProfiles", currentUid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            console.log("Loaded student profile from Firestore:", data);
+            setUserProfile(data);
+            if (data.progress) {
+              setProgress(data.progress);
             }
-          })
-          .catch((err) => {
-            console.warn("Failed to fetch user profiles during initialization, switching to Local Sandbox Mode:", err);
-            setIsFirebaseOffline(true);
-          });
+          } else {
+            console.log("No profile on Firestore yet for this UID");
+            setUserProfile(null);
+          }
+        } catch (err) {
+          console.warn("Failed to fetch user profile, switching to Local Sandbox Mode:", err);
+          setIsFirebaseOffline(true);
+        }
+      } else {
+        setUserProfile(null);
       }
       setIsAuthReady(true);
     });
@@ -737,21 +761,17 @@ export default function App() {
   // Submit custom forum comment/reply to subcollection
   const handleAddComment = async (postId: string) => {
     if (!commentInput.trim()) return;
-
-    if (!commenterName || !commenterName.trim()) {
-      setTempCommenterName("");
-      setTempCommenterRole("Sinh viên");
-      setPendingPostIdToComment(postId);
-      setShowCommenterNameModal(true);
+    if (!auth.currentUser || !userProfile) {
+      setIsAuthModalOpen(true);
       return;
     }
 
     const contentToPost = commentInput;
     setCommentInput(""); // Clear immediately for instant client response
-    await executeAddComment(postId, commenterName, commenterRole, contentToPost);
+    await executeAddComment(postId, userProfile.name, userProfile.role || "Sinh viên", userProfile.avatarUrl || null, contentToPost);
   };
 
-  const executeAddComment = async (postId: string, authorName: string, authorRole: string, content: string) => {
+  const executeAddComment = async (postId: string, authorName: string, authorRole: string, avatarUrl: string | null, content: string) => {
     const replyId = "comment-" + Date.now();
     const colors = ["bg-amber-500", "bg-emerald-500", "bg-blue-500", "bg-indigo-500", "bg-rose-500", "bg-purple-500", "bg-pink-500", "bg-teal-500"];
     const hash = authorName.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -795,6 +815,7 @@ export default function App() {
         author: authorName,
         role: authorRole,
         avatarColor: avatarColor,
+        avatarUrl: avatarUrl,
         content: content,
         authorUid: auth.currentUser?.uid || null,
         createdAt: serverTimestamp()
@@ -979,11 +1000,15 @@ export default function App() {
   // Submit new forum post thread to Firestore
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPostTitle.trim() || !newPostContent.trim() || !commenterName.trim()) return;
+    if (!newPostTitle.trim() || !newPostContent.trim()) return;
+    if (!auth.currentUser || !userProfile) {
+      setIsAuthModalOpen(true);
+      return;
+    }
 
-    // Use synced checked and saved identity
-    const cleanAuthor = commenterName.trim();
-    const currentRole = commenterRole as any;
+    const cleanAuthor = userProfile.name;
+    const currentRole = userProfile.role || "Sinh viên";
+    const avatarUrl = userProfile.avatarUrl || null;
 
     const threadId = "thread-" + Date.now();
     const newPost = {
@@ -1022,6 +1047,7 @@ export default function App() {
         author: cleanAuthor,
         role: currentRole,
         avatarColor: currentRole === "Sinh viên" ? "bg-cyan-700" : "bg-purple-800",
+        avatarUrl: avatarUrl,
         title: newPostTitle,
         content: newPostContent,
         category: newPostCategory,
@@ -1303,6 +1329,15 @@ export default function App() {
   return (
     <div id="root-app" className="min-h-screen bg-neutral-50 font-sans text-primary flex flex-col antialiased">
       <PhilosophicalCursor />
+      <AuthModal 
+        isOpen={isAuthModalOpen || (isAuthReady && !auth.currentUser)} 
+        closable={!(isAuthReady && !auth.currentUser)}
+        onClose={() => setIsAuthModalOpen(false)} 
+        onSuccess={() => {
+        // Additional refresh logic if needed
+      }} />
+      <UserProfileModal isOpen={isUserProfileModalOpen} onClose={() => setIsUserProfileModalOpen(false)} uid={auth.currentUser?.uid || ""} />
+      
       {/* Dynamic top navigation bar */}
       <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-primary/10 shadow-sm transition-all">
         <div className="flex justify-between items-center px-4 md:px-12 py-4 max-w-7xl mx-auto w-full">
@@ -1437,17 +1472,29 @@ export default function App() {
 
           <div className="flex items-center gap-3">
 
-            {/* Quick dashboard trigger */}
-            <button
-              onClick={() => {
-                safeNavigate(() => {
-                  handleSelectStation(1);
-                });
-              }}
-              className="bg-primary text-white px-5 py-2 rounded-full font-sans font-semibold text-xs hover:bg-opacity-90 active:scale-95 transition-all shadow-sm"
-            >
-              Bắt đầu học
-            </button>
+            {/* Auth/Profile Trigger */}
+            {auth.currentUser ? (
+              <button
+                onClick={() => setIsUserProfileModalOpen(true)}
+                className="flex items-center gap-2 bg-neutral-100 border border-neutral-200 text-primary px-3 py-1.5 rounded-full font-sans font-semibold text-xs hover:bg-neutral-200 transition-all shadow-sm"
+              >
+                <div className="w-6 h-6 rounded-full overflow-hidden bg-primary/10">
+                   {userProfile?.avatarUrl ? (
+                     <img src={userProfile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                   ) : (
+                     <User className="w-4 h-4 m-1 text-primary" />
+                   )}
+                </div>
+                <span className="max-w-[100px] truncate">{userProfile?.name || auth.currentUser.email}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="bg-amber-600 text-white px-5 py-2 rounded-full font-sans font-bold text-xs hover:bg-amber-700 active:scale-95 transition-all shadow-sm flex items-center gap-2"
+              >
+                Đăng nhập
+              </button>
+            )}
 
             {/* Mobile Menu toggler */}
             <button
@@ -2466,7 +2513,12 @@ export default function App() {
                                     })}
                                   </div>
                                   
-                                  <div className="pt-2">
+                                  <div className="pt-2 relative">
+                                    {!currentDisplayName && (
+                                      <span className="text-[10px] text-amber-600 flex items-center gap-1 font-bold absolute right-0 top-0 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 pointer-events-none">
+                                        Cần thiết lập danh tính!
+                                      </span>
+                                    )}
                                     <p className="text-[10px] text-neutral-400 text-center leading-relaxed italic">
                                       * Bấm vào từng ô số để đến nhanh câu hỏi tương ứng. Bạn có thể đánh dấu câu cần chú ý để xem lại trước khi nộp.
                                     </p>
@@ -2649,7 +2701,7 @@ export default function App() {
                         Chế Độ Xem Ngoại Tuyến (Offline Local Sandbox Mode)
                       </h4>
                       <p className="text-xs text-neutral-600 leading-relaxed">
-                        Diễn đàn hiện đang chạy ở <strong>chế độ offline riêng tư</strong> từ trình duyệt của bạn vì phương thức đăng nhập ẩn danh chưa được kích hoạt ở Firebase Console của dự án <code>{firebaseConfig.projectId}</code>.
+                        Diễn đàn hiện đang chạy ở <strong>chế độ offline riêng tư</strong> từ trình duyệt của bạn.
                         <br />
                         Mọi nội dung thảo luận sẽ được lưu trữ tự động trong bộ nhớ trình duyệt (localStorage) của bạn và vẫn hoàn toàn tương tác được!
                       </p>
@@ -2680,30 +2732,30 @@ export default function App() {
                   <div className="bg-neutral-50/80 border border-neutral-200/60 rounded-2xl p-4 flex items-center justify-between shadow-xs">
                     <div className="flex items-center gap-2.5">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 ${
-                        commenterRole === "Sinh viên" ? "bg-cyan-700" : "bg-purple-800"
+                        currentDisplayRole === "Sinh viên" ? "bg-cyan-700" : "bg-purple-800"
                       }`}>
-                        {commenterName ? commenterName.charAt(0).toUpperCase() : "?"}
+                        {currentDisplayName ? currentDisplayName.charAt(0).toUpperCase() : "?"}
                       </div>
                       <div className="min-w-0">
                         <div className="text-[9px] text-neutral-400 font-sans font-semibold uppercase tracking-wider">Danh tính thảo luận</div>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-serif text-xs font-bold text-neutral-800 truncate max-w-[125px]" title={commenterName || "Học viên ẩn danh"}>
-                            {commenterName || "Học viên ẩn danh"}
+                          <span className="font-serif text-xs font-bold text-neutral-800 truncate max-w-[125px]" title={currentDisplayName || "Học viên ẩn danh"}>
+                            {currentDisplayName || "Học viên ẩn danh"}
                           </span>
                           <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                            commenterRole === "Sinh viên"
+                            currentDisplayRole === "Sinh viên"
                               ? "bg-cyan-50 border border-cyan-100 text-cyan-800"
                               : "bg-purple-50 border border-purple-100 text-purple-800"
                           }`}>
-                            {commenterRole}
+                            {currentDisplayRole}
                           </span>
                         </div>
                       </div>
                     </div>
                      <button
                       onClick={() => {
-                        setTempCommenterName(commenterName);
-                        setTempCommenterRole(commenterRole as any);
+                        setTempCommenterName(currentDisplayName);
+                        setTempCommenterRole(currentDisplayRole as any);
                         setIdentityError(null);
                         setShowCommenterNameModal(true);
                       }}
@@ -2780,7 +2832,7 @@ export default function App() {
                               {post.category}
                             </span>
                             <div className="flex items-center gap-3">
-                              {commenterName && post.author === commenterName && (
+                              {currentDisplayName && post.author === currentDisplayName && (
                                 <button
                                   onClick={() => handleDeletePost(post.id)}
                                   className="text-red-500 hover:text-red-700 text-[11px] flex items-center gap-1 cursor-pointer transition-all border border-red-200 bg-red-50/10 hover:bg-red-50 px-2.5 py-1 rounded-lg"
@@ -2876,7 +2928,7 @@ export default function App() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <span className="text-[9px] text-neutral-400 font-mono">{comment.timestamp}</span>
-                                      {commenterName && comment.author === commenterName && (
+                                      {currentDisplayName && comment.author === currentDisplayName && (
                                         <button
                                           onClick={() => handleDeleteComment(post.id, comment.id)}
                                           className="text-red-400 hover:text-red-600 p-1 hover:bg-neutral-105 rounded cursor-pointer transition-all"
@@ -2898,6 +2950,9 @@ export default function App() {
                           {/* Write feedback input area */}
                           <div className="pt-2">
                             <div className="flex gap-3">
+                              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-600 font-bold shrink-0 border border-neutral-300">
+                                {currentDisplayName ? currentDisplayName.charAt(0).toUpperCase() : "?"}
+                              </div>
                               <input
                                 type="text"
                                 placeholder="Ghi nhận xét phản đối hoặc đồng ý tại đây..."
@@ -2912,29 +2967,29 @@ export default function App() {
                               />
                               <button
                                 onClick={() => handleAddComment(post.id)}
-                                className="bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer hover:bg-opacity-95 transition-all"
+                                disabled={!currentDisplayName}
+                                className="bg-primary text-white text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer hover:bg-opacity-95 transition-all disabled:bg-neutral-300"
                               >
                                 Gửi phản hồi
                               </button>
                             </div>
                             <div className="flex items-center justify-between gap-2 flex-wrap text-[10px] text-neutral-400 mt-1.5 leading-normal">
                               <span>
-                                ⚠️ Đăng nhận xét với tư cách: <strong className="text-neutral-700">{commenterName || "Học viên ẩn danh"} ({commenterRole})</strong>
+                                ⚠️ Đăng nhận xét với tư cách: <strong className="text-neutral-700">{currentDisplayName || "Học viên ẩn danh"} ({currentDisplayRole})</strong>
                               </span>
-                              <button
-                                onClick={() => {
-                                  setTempCommenterName(commenterName);
-                                  setTempCommenterRole(commenterRole as any);
-                                  setShowCommenterNameModal(true);
-                                }}
-                                className="text-primary hover:underline font-bold cursor-pointer inline-flex items-center gap-0.5 shrink-0"
-                              >
-                                <Edit className="w-2.5 h-2.5" /> Đổi danh tính
-                              </button>
+                              {!auth.currentUser && (
+                                <button
+                                  onClick={() => {
+                                    setTempCommenterName(currentDisplayName);
+                                    setTempCommenterRole(currentDisplayRole as any);
+                                    setShowCommenterNameModal(true);
+                                  }}
+                                  className="text-primary hover:underline font-bold cursor-pointer inline-flex items-center gap-0.5 shrink-0"
+                                >
+                                  <Edit className="w-2.5 h-2.5" /> Đổi danh tính
+                                </button>
+                              )}
                             </div>
-                            <p className="text-[10px] text-neutral-400/80 mt-1 leading-normal">
-                              Mọi ý kiến của bạn nên được xây dựng trên tinh thần học thuật, lịch sự và tôn trọng.
-                            </p>
                           </div>
                         </div>
 
@@ -2990,7 +3045,7 @@ export default function App() {
                       type="text"
                       readOnly
                       placeholder="Chưa thiết lập học hiệu"
-                      value={commenterName || ""}
+                      value={currentDisplayName || ""}
                       className="w-full text-xs border rounded-lg px-3 py-2 bg-neutral-100 outline-none text-neutral-500 font-medium cursor-not-allowed"
                     />
                   </div>
@@ -3003,12 +3058,12 @@ export default function App() {
                       type="text"
                       readOnly
                       placeholder="Chưa thiết lập vai trò"
-                      value={commenterRole || ""}
+                      value={currentDisplayRole || ""}
                       className="w-full text-xs border rounded-lg px-3 py-2 bg-neutral-100 outline-none text-neutral-500 font-medium cursor-not-allowed"
                     />
                   </div>
                 </div>
-                {!commenterName && (
+                {!currentDisplayName && (
                   <div className="text-center p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1.5">
                     <p className="text-[11px] text-rose-700 font-medium">
                       ⚠️ Bạn cần thiết lập Học hiệu (biệt danh duy nhất) trước khi khởi tạo đề tài thảo luận nhé!

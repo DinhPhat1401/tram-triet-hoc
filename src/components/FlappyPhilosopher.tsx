@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bird, AlertTriangle, Play, RefreshCw, BookOpen, CheckCircle, XCircle, Star, ShieldAlert, Sparkles, Lock, Maximize2, Minimize2, ArrowLeft } from 'lucide-react';
 import { PHILOSOPHY_QUIZ, QuizQuestion } from '../data/quizData';
+import { auth, db } from '../firebase';
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 
 const GRAVITY = 0.15;
 const JUMP_STRENGTH = -4.5;
@@ -38,6 +40,27 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
   const [isFullscreen, setIsFullscreen] = useState(false);
   const gameContainerRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    if (auth.currentUser) {
+      const fetchBestScore = async () => {
+        try {
+          const docRef = doc(db, "userProfiles", auth.currentUser!.uid);
+          const snap = await getDoc(docRef);
+          if (snap.exists()) {
+            const flappyBest = snap.data().bestScores?.flappy || 0;
+            setBestScore(prev => {
+              const newBest = Math.max(prev, flappyBest);
+              localStorage.setItem('flappy_best', newBest.toString());
+              return newBest;
+            });
+          }
+        } catch (e) {
+          console.error("Lỗi lấy điểm cao Flappy:", e);
+        }
+      };
+      fetchBestScore();
+    }
+  }, []);
   // Fullscreen change handler and auto-enter fullscreen on mount
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -620,7 +643,17 @@ export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProp
                   ) : (
                     <button
                       onClick={() => {
-                        setBestScore(Math.max(bestScore, scoreRef.current));
+                        const finalScore = Math.max(bestScore, scoreRef.current);
+                        if (scoreRef.current > bestScore) {
+                          setBestScore(scoreRef.current);
+                          localStorage.setItem('flappy_best', scoreRef.current.toString());
+                          
+                          if (auth.currentUser) {
+                            const uid = auth.currentUser.uid;
+                            const docRef = doc(db, "userProfiles", uid);
+                            setDoc(docRef, { uid, bestScores: { flappy: scoreRef.current } }, { merge: true }).catch(console.error);
+                          }
+                        }
                         setGameState('dead');
                         setSelectedAnswer(null);
                         setIsAnswerCorrect(null);

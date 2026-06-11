@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { HelpCircle, RefreshCw, Timer, Award, CheckCircle2, Volume2, VolumeX, Maximize2, Minimize2, ArrowLeft, BookOpen, Sparkles } from "lucide-react";
+import { auth, db } from "../firebase";
+import { doc, updateDoc, getDoc, setDoc } from "firebase/firestore";
 
 interface MemoryCard {
   id: string; // unique card instance ID (e.g., '1-philosopher' or '1-concept')
@@ -170,6 +172,28 @@ export default function PhilosophicalMemory({ onBackToHub }: PhilosophicalMemory
 
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const gameContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (auth.currentUser) {
+      const fetchBestScore = async () => {
+        try {
+          const docRef = doc(db, "userProfiles", auth.currentUser!.uid);
+          const snap = await getDoc(docRef);
+          if (snap.exists()) {
+            const memoryBest = snap.data().bestScores?.memory || 0;
+            setBestScore(prev => {
+              const newBest = Math.max(prev, memoryBest);
+              localStorage.setItem("memory_best_score", newBest.toString());
+              return newBest;
+            });
+          }
+        } catch (e) {
+          console.error("Lỗi lấy điểm cao Memory:", e);
+        }
+      };
+      fetchBestScore();
+    }
+  }, []);
 
   // Reveal countdown effect
   useEffect(() => {
@@ -355,6 +379,12 @@ export default function PhilosophicalMemory({ onBackToHub }: PhilosophicalMemory
             if (finalScore > bestScore) {
               setBestScore(finalScore);
               localStorage.setItem("memory_best_score", finalScore.toString());
+              
+              if (auth.currentUser) {
+                const uid = auth.currentUser.uid;
+                const docRef = doc(db, "userProfiles", uid);
+                setDoc(docRef, { uid, bestScores: { memory: finalScore } }, { merge: true }).catch(console.error);
+              }
             }
           }
         }, 500);

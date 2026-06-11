@@ -54,12 +54,14 @@ service cloud.firestore {
 
     // UserProfile Validation
     function isValidUserProfile(data) {
-      return data.keys().hasAll(['uid', 'name', 'role', 'createdAt'])
-        && data.keys().size() == 4
+      return data.keys().hasAll(['uid'])
         && data.uid is string && data.uid == request.auth.uid
-        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.role is string && (data.role == 'Sinh viên' || data.role == 'Người nghiên cứu')
-        && data.createdAt == request.time;
+        && (!data.keys().hasAny(['name']) || (data.name is string && data.name.size() <= 100))
+        && (!data.keys().hasAny(['role']) || (data.role is string && (data.role == 'Sinh viên' || data.role == 'Người nghiên cứu')))
+        && (!data.keys().hasAny(['email']) || (data.email is string))
+        && (!data.keys().hasAny(['avatarUrl']) || (data.avatarUrl is string))
+        && (!data.keys().hasAny(['progress']) || (data.progress is map))
+        && (!data.keys().hasAny(['bestScores']) || (data.bestScores is map));
     }
 
     // Collection: forumPosts
