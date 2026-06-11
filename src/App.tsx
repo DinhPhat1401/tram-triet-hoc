@@ -3540,6 +3540,14 @@ export default function App() {
                           <li>Tự động lưu kỷ lục điểm cao nhất của bạn.</li>
                         </ul>
                       </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 block text-left">Cách tính điểm:</span>
+                        <ul className="text-[11px] text-neutral-600 space-y-1 list-disc pl-4 leading-normal text-left">
+                          <li>Vượt 1 chướng ngại vật: <strong>+1 điểm</strong></li>
+                          <li>Ăn ngôi sao may mắn: <strong>+2 điểm</strong></li>
+                          <li>Trả lời đúng câu hỏi của Trùm: <strong>+10 điểm</strong></li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
 
@@ -3584,6 +3592,15 @@ export default function App() {
                           <li>Bảng thống kê kỷ lục thời gian tốt nhất.</li>
                         </ul>
                       </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 block text-left">Cách tính điểm:</span>
+                        <ul className="text-[11px] text-neutral-600 space-y-1 list-disc pl-4 leading-normal text-left">
+                          <li>Điểm khởi điểm: <strong>10,000 điểm</strong></li>
+                          <li>Mỗi lần lật sai (Moves): <strong>-100 điểm</strong></li>
+                          <li>Mỗi giây trôi qua: <strong>-15 điểm</strong></li>
+                          <li>Điểm tối thiểu nhận được: <strong>100 điểm</strong></li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
 
@@ -3626,6 +3643,14 @@ export default function App() {
                           <li>Hệ thống 10 câu hỏi luôn được làm mới mỗi ván.</li>
                           <li>Cộng điểm thưởng (Time Bonus) cho tốc độ suy nghĩ nhanh.</li>
                           <li>Hiệu ứng bắt bóng đồ họa 2D sinh động, kịch tính.</li>
+                        </ul>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block text-left">Cách tính điểm:</span>
+                        <ul className="text-[11px] text-neutral-600 space-y-1 list-disc pl-4 leading-normal text-left">
+                          <li>Cản phá chính xác: <strong>+100 điểm</strong></li>
+                          <li>Thưởng thời gian (Time Bonus): <strong>+1 điểm</strong> cho mỗi giây còn dư</li>
+                          <li>Tối đa <strong>190 điểm</strong> / lượt cản phá.</li>
                         </ul>
                       </div>
                     </div>
