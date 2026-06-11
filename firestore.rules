@@ -67,7 +67,7 @@ service cloud.firestore {
 
     // Collection: forumPosts
     match /forumPosts/{postId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn() && isValidId(postId) && isValidDiscussionPost(request.resource.data) && request.resource.data.id == postId;
       
       // Updates: allow likes change, repliesCount change, or profile author/role updates
@@ -122,7 +122,7 @@ service cloud.firestore {
 
     // Subcollection replies (Flat route)
     match /forumPosts/{postId}/replies/{replyId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn() && isValidId(replyId) && isValidComment(request.resource.data) && request.resource.data.id == replyId;
       allow update: if isSignedIn()
         && (
@@ -140,7 +140,7 @@ service cloud.firestore {
 
     // Subcollection likes (Flat route)
     match /forumPosts/{postId}/likes/{likeId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn() && isValidId(likeId) && isValidLike(request.resource.data) && likeId == request.auth.uid;
       allow delete: if isSignedIn() && isValidId(likeId) && likeId == request.auth.uid;
     }
