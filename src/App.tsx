@@ -35,6 +35,7 @@ import {
   Download,
   Loader2,
   AlertTriangle,
+  Gamepad2,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { motion } from "motion/react";
@@ -43,6 +44,7 @@ import { Station, Book, DiscussionPost, UserProgress, Comment } from "./types";
 import PhilosophicalCursor from "./components/PhilosophicalCursor";
 import PhilosophersGallery from "./components/PhilosophersGallery";
 import FlappyPhilosopher from "./components/FlappyPhilosopher";
+import PhilosophicalMemory from "./components/PhilosophicalMemory";
 import anhHocThuat from "./anh_hoc_thuat.png";
 import {
   collection,
@@ -71,6 +73,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showIntroModal, setShowIntroModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedGameId, setSelectedGameId] = useState<"flappy" | "memory" | null>(null);
 
   // Forum Threads State synced with Firestore
   const [forumPosts, setForumPosts] = useState<DiscussionPost[]>([]);
@@ -403,6 +406,24 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("tram_hoc_progress", JSON.stringify(progress));
   }, [progress]);
+
+  // Turn off cursor effect when playing game
+  useEffect(() => {
+    const isPlaying = view === "game" && selectedGameId !== null;
+    window.dispatchEvent(new CustomEvent("game-status-changed", { detail: { active: isPlaying } }));
+    
+    // Clean up when unmounting or changing view
+    return () => {
+      window.dispatchEvent(new CustomEvent("game-status-changed", { detail: { active: false } }));
+    };
+  }, [view, selectedGameId]);
+
+  // Reset selected game when leaving the game tab
+  useEffect(() => {
+    if (view !== "game") {
+      setSelectedGameId(null);
+    }
+  }, [view]);
 
   // Sync with Firestore
   useEffect(() => {
@@ -3434,20 +3455,105 @@ export default function App() {
       {/* VIEW: GAME TAB */}
       {view === "game" && (
         <div className="min-h-[80vh] bg-neutral-50 py-12 px-4 md:px-12 flex flex-col items-center justify-center">
-          <div className="max-w-4xl mx-auto flex flex-col items-center">
-            <div className="mb-10 text-center">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase tracking-wider mb-3">
-                <Sparkles className="w-3 h-3 text-emerald-600" /> Thử Thách Giải Trí
-              </span>
-              <h2 className="font-serif text-3xl md:text-4xl text-primary font-bold">
-                Mini-Game: Flappy Philosopher
-              </h2>
-              <p className="font-sans text-neutral-600 text-sm mt-3 max-w-xl mx-auto">
-                Kiểm tra phản xạ và kiến thức triết học của bạn. Khi chim đụng cột, bạn sẽ có cơ hội hồi sinh nếu trả lời đúng câu hỏi.
-              </p>
+          {selectedGameId === null ? (
+            <div className="max-w-5xl mx-auto flex flex-col items-center w-full">
+              {/* Header */}
+              <div className="mb-12 text-center max-w-2xl animate-fade-in">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase tracking-wider mb-3">
+                  <Sparkles className="w-3 h-3 text-emerald-600" /> Trạm Trò Chơi Triết Học
+                </span>
+                <h2 className="font-serif text-3xl md:text-5xl text-primary font-bold tracking-tight">
+                  Thử Thách Trí Tuệ & Giải Trí
+                </h2>
+                <p className="font-sans text-neutral-600 text-sm sm:text-base mt-4 leading-relaxed">
+                  Vừa thư giãn vừa ôn tập các luận điểm triết học Mác-Lênin cốt lõi. Hãy chọn trò chơi yêu thích của bạn dưới đây.
+                </p>
+              </div>
+
+              {/* Game Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+                {/* Flappy Philosopher Card */}
+                <div className="group bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 flex flex-col justify-between hover:shadow-2xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
+                  <div className="space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-3xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
+                      🦅
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-serif text-xl sm:text-2xl font-bold text-primary">Flappy Philosopher</h3>
+                        <span className="text-[10px] px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-bold uppercase">Khó</span>
+                      </div>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        Hãy khéo léo điều khiển chú chim triết gia vượt qua các cột học thuyết lịch sử. Nếu xảy ra va chạm, câu hỏi triết học hóc búa sẽ xuất hiện để cứu sinh bạn!
+                      </p>
+                    </div>
+                    
+                    <div className="h-px bg-neutral-100 my-4"></div>
+
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block text-left">Điểm nổi bật:</span>
+                      <ul className="text-xs text-neutral-600 space-y-1.5 list-disc pl-4 leading-normal text-left">
+                        <li>Đấu Boss trí tuệ ở các mốc điểm 100, 200, 300...</li>
+                        <li>Mở khóa nhân vật nổi tiếng như Karl Marx, Lenin.</li>
+                        <li>Yêu cầu phản xạ cao kết hợp trí tuệ triết học.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedGameId("flappy")}
+                    className="w-full bg-primary hover:bg-neutral-900 text-white font-bold text-xs py-3.5 rounded-2xl transition-all shadow-md cursor-pointer mt-6 flex items-center justify-center gap-2 group-hover:bg-amber-600"
+                  >
+                    Vào chơi ngay 🚀
+                  </button>
+                </div>
+
+                {/* Philosophical Memory Card */}
+                <div className="group bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 flex flex-col justify-between hover:shadow-2xl hover:border-sky-400/50 hover:-translate-y-1 transition-all duration-300">
+                  <div className="space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center text-3xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
+                      🧩
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-serif text-xl sm:text-2xl font-bold text-primary">Trí Tuệ Đối Hoàn</h3>
+                        <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold uppercase">Vừa phải</span>
+                      </div>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        Thử thách trí nhớ bằng cách ghép đôi các triết gia nổi tiếng (Plato, Descartes, Marx...) với các tư tưởng biện chứng, ý niệm hoặc duy vật cốt lõi tương ứng của họ.
+                      </p>
+                    </div>
+
+                    <div className="h-px bg-neutral-100 my-4"></div>
+
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block text-left">Điểm nổi bật:</span>
+                      <ul className="text-xs text-neutral-600 space-y-1.5 list-disc pl-4 leading-normal text-left">
+                        <li>Luyện trí nhớ học thuật và giải nghĩa lý thuyết tức thì.</li>
+                        <li>Hiệu ứng âm thanh hấp dẫn, trực quan.</li>
+                        <li>Bảng thống kê kỷ lục thời gian tốt nhất lưu trữ cục bộ.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedGameId("memory")}
+                    className="w-full bg-primary hover:bg-neutral-900 text-white font-bold text-xs py-3.5 rounded-2xl transition-all shadow-md cursor-pointer mt-6 flex items-center justify-center gap-2 group-hover:bg-sky-600"
+                  >
+                    Vào chơi ngay 🧩
+                  </button>
+                </div>
+              </div>
             </div>
-            <FlappyPhilosopher />
-          </div>
+          ) : (
+            <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center animate-fade-in">
+              {selectedGameId === "flappy" ? (
+                <FlappyPhilosopher onBackToHub={() => setSelectedGameId(null)} />
+              ) : (
+                <PhilosophicalMemory onBackToHub={() => setSelectedGameId(null)} />
+              )}
+            </div>
+          )}
         </div>
       )}
 

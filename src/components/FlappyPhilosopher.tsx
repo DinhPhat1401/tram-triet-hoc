@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bird, AlertTriangle, Play, RefreshCw, BookOpen, CheckCircle, XCircle, Star, ShieldAlert, Sparkles, Lock } from 'lucide-react';
+import { Bird, AlertTriangle, Play, RefreshCw, BookOpen, CheckCircle, XCircle, Star, ShieldAlert, Sparkles, Lock, Maximize2, Minimize2, ArrowLeft } from 'lucide-react';
 import { PHILOSOPHY_QUIZ, QuizQuestion } from '../data/quizData';
 
 const GRAVITY = 0.15;
@@ -21,7 +21,11 @@ const SKINS = {
 
 type SkinType = keyof typeof SKINS;
 
-export default function FlappyPhilosopher() {
+interface FlappyPhilosopherProps {
+  onBackToHub: () => void;
+}
+
+export default function FlappyPhilosopher({ onBackToHub }: FlappyPhilosopherProps) {
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'quiz' | 'boss_quiz' | 'dead' | 'countdown'>('idle');
   const [countdownValue, setCountdownValue] = useState(3);
   const [score, setScore] = useState(0);
@@ -30,6 +34,37 @@ export default function FlappyPhilosopher() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isAnswerCorrect, setIsAnswerCorrect] = useState<boolean | null>(null);
   const [activeSkin, setActiveSkin] = useState<SkinType>('bird');
+  
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const gameContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Fullscreen change handler and auto-enter fullscreen on mount
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    // Auto-enter fullscreen
+    if (gameContainerRef.current) {
+      gameContainerRef.current.requestFullscreen().catch((err) => {
+        console.warn("Auto-fullscreen blocked or failed:", err);
+      });
+    }
+
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!gameContainerRef.current) return;
+    if (!document.fullscreenElement) {
+      gameContainerRef.current.requestFullscreen().catch((err) => {
+        console.error("Lỗi khi chuyển chế độ toàn màn hình:", err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   // Use refs for high-frequency game state to avoid stale closures
   const scoreRef = useRef(0);
@@ -288,34 +323,29 @@ export default function FlappyPhilosopher() {
     setSelectedAnswer(index);
     const correct = index === currentQuiz.correctAnswerIndex;
     setIsAnswerCorrect(correct);
+  };
+
+  const handleContinueGame = () => {
     const isBoss = gameState === 'boss_quiz';
+    if (isBoss) {
+      addScore(10);
+      spawnParticle(GAME_WIDTH/2, GAME_HEIGHT/2, "+10 BOSS!");
+    }
 
-    setTimeout(() => {
-      if (correct) {
-        if (isBoss) {
-          addScore(10);
-          spawnParticle(GAME_WIDTH/2, GAME_HEIGHT/2, "+10 BOSS!");
-        }
-
-        pipes.current = [];
-        stars.current = [];
-        birdVelocity.current = 0;
-        birdY.current = GAME_HEIGHT / 2;
-        
-        setGameState('countdown');
-        setCountdownValue(3);
-        setSelectedAnswer(null);
-        setIsAnswerCorrect(null);
-        
-        if (isBoss) {
-          isInvulnerable.current = true;
-          invulnerableTimer.current = 300; // 5 seconds safe
-        }
-      } else {
-        setBestScore(Math.max(bestScore, scoreRef.current));
-        setGameState('dead');
-      }
-    }, 2500);
+    pipes.current = [];
+    stars.current = [];
+    birdVelocity.current = 0;
+    birdY.current = GAME_HEIGHT / 2;
+    
+    setGameState('countdown');
+    setCountdownValue(3);
+    setSelectedAnswer(null);
+    setIsAnswerCorrect(null);
+    
+    if (isBoss) {
+      isInvulnerable.current = true;
+      invulnerableTimer.current = 300; // 5 seconds safe
+    }
   };
 
   // Determine Background CSS based on score (Eras of Philosophy)
@@ -334,14 +364,36 @@ export default function FlappyPhilosopher() {
   };
 
   return (
-    <div className="flex flex-col items-center w-full max-w-lg mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-neutral-100">
-      <div className="bg-amber-50 w-full p-4 border-b border-amber-100 flex justify-between items-center z-50">
-        <h3 className="font-serif font-bold text-amber-900 flex items-center gap-2">
-          <Bird className="w-5 h-5" /> Flappy Philosopher
-        </h3>
-        <div className="flex gap-4 font-bold text-neutral-600 font-mono">
+    <div 
+      ref={gameContainerRef}
+      className={`flex flex-col items-center w-full max-w-lg mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-neutral-100 transition-all duration-300 ${
+        isFullscreen ? "fixed inset-0 z-[9999] rounded-none max-w-none justify-center bg-neutral-950 border-none" : "relative"
+      }`}
+    >
+      <div className="bg-amber-50 w-full p-4 border-b border-amber-100 flex justify-between items-center z-50 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onBackToHub}
+            className="p-1.5 bg-neutral-200/50 hover:bg-neutral-200 hover:text-neutral-800 rounded-lg text-neutral-600 transition flex items-center gap-1 text-[10px] cursor-pointer font-sans"
+            title="Quay lại danh sách game"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Quay lại
+          </button>
+          <h3 className="font-serif font-bold text-amber-900 flex items-center gap-1.5 text-sm sm:text-base">
+            <Bird className="w-4 h-4 sm:w-5 sm:h-5" /> Flappy Philosopher
+          </h3>
+        </div>
+        
+        <div className="flex items-center gap-3 font-bold text-neutral-600 font-mono text-xs sm:text-sm">
           <span>Score: {score}</span>
           <span className="text-amber-600">Best: {bestScore}</span>
+          <button
+            onClick={toggleFullscreen}
+            className="p-1.5 bg-neutral-200/50 hover:bg-neutral-200 rounded-lg text-neutral-600 hover:text-neutral-800 transition cursor-pointer flex items-center justify-center"
+            title={isFullscreen ? "Thu nhỏ màn hình" : "Phóng to toàn màn hình"}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
         </div>
       </div>
 
@@ -481,75 +533,103 @@ export default function FlappyPhilosopher() {
 
         {/* Quiz Modal Overlay (Normal & Boss) */}
         {(gameState === 'quiz' || gameState === 'boss_quiz') && currentQuiz && (
-          <div className="absolute inset-0 bg-neutral-900/95 z-40 flex flex-col items-center justify-center p-4 backdrop-blur-md">
-            <div className={`rounded-xl w-full max-w-sm p-6 shadow-2xl flex flex-col relative overflow-hidden ${
-              gameState === 'boss_quiz' ? 'bg-gradient-to-b from-rose-950 to-neutral-900 border-2 border-rose-500' : 'bg-white border border-neutral-200'
+          <div className="absolute inset-0 bg-neutral-900/95 z-40 flex flex-col items-center justify-center p-3 sm:p-4 backdrop-blur-md">
+            <div className={`rounded-2xl w-full max-w-xs sm:max-w-sm p-4 sm:p-5 shadow-2xl flex flex-col relative overflow-hidden transition-all ${
+              gameState === 'boss_quiz' ? 'bg-gradient-to-b from-rose-950 to-neutral-900 border border-rose-500' : 'bg-white border border-neutral-200'
             }`}>
               {/* Boss Background Glow */}
               {gameState === 'boss_quiz' && (
-                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-600/20 blur-3xl rounded-full"></div>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-rose-600/10 blur-2xl rounded-full"></div>
               )}
 
-              <div className={`flex items-center gap-2 font-bold mb-3 ${gameState === 'boss_quiz' ? 'text-rose-400' : 'text-rose-600'}`}>
-                {gameState === 'boss_quiz' ? <ShieldAlert className="w-6 h-6 animate-pulse" /> : <AlertTriangle className="w-5 h-5" />}
-                <span className="text-lg">{gameState === 'boss_quiz' ? 'BOSS FIGHT TRÍ TUỆ!' : 'BẠN VỪA ĐỤNG CỘT!'}</span>
-              </div>
-              <p className={`text-sm mb-5 italic ${gameState === 'boss_quiz' ? 'text-rose-200/70' : 'text-neutral-600'}`}>
-                {gameState === 'boss_quiz' 
-                  ? 'Trả lời đúng để nhận 10 điểm và 5 giây bất tử!' 
-                  : 'Trả lời đúng câu hỏi để được trao cơ hội sống lại:'}
-              </p>
-              
-              <h4 className={`font-bold text-lg mb-5 leading-relaxed ${gameState === 'boss_quiz' ? 'text-white' : 'text-neutral-800'}`}>
+              {/* Header Info - Hide when answered to save space */}
+              {selectedAnswer === null && (
+                <>
+                  <div className={`flex items-center gap-1.5 font-bold mb-2 ${gameState === 'boss_quiz' ? 'text-rose-400' : 'text-rose-600'}`}>
+                    {gameState === 'boss_quiz' ? <ShieldAlert className="w-4 h-4 animate-pulse" /> : <AlertTriangle className="w-4 h-4" />}
+                    <span className="text-sm tracking-wide">{gameState === 'boss_quiz' ? 'BOSS FIGHT TRÍ TUỆ!' : 'BẠN VỪA ĐỤNG CỘT!'}</span>
+                  </div>
+                  <p className={`text-[10px] sm:text-xs mb-3 italic leading-normal ${gameState === 'boss_quiz' ? 'text-rose-200/60' : 'text-neutral-500'}`}>
+                    {gameState === 'boss_quiz' 
+                      ? 'Trả lời đúng để nhận 10 điểm và 5 giây bất tử!' 
+                      : 'Trả lời đúng câu hỏi để được trao cơ hội sống lại:'}
+                  </p>
+                </>
+              )}
+
+              {/* Question Text */}
+              <h4 className={`font-bold text-xs sm:text-sm mb-3.5 leading-relaxed font-serif text-left ${
+                gameState === 'boss_quiz' ? 'text-white' : 'text-neutral-800'
+              }`}>
                 {currentQuiz.question}
               </h4>
               
-              <div className="flex flex-col gap-2.5 mb-5 relative z-10">
-                {currentQuiz.options.map((opt, i) => {
-                  let btnClass = "text-left px-4 py-3 text-sm rounded-xl border-2 transition-all font-medium ";
-                  
-                  if (selectedAnswer === null) {
+              {/* Answer selection / result exegesis display */}
+              {selectedAnswer === null ? (
+                <div className="flex flex-col gap-2 relative z-10">
+                  {currentQuiz.options.map((opt, i) => {
+                    let btnClass = "text-left px-3 py-2 text-xs rounded-xl border transition-all font-medium leading-tight ";
                     btnClass += gameState === 'boss_quiz' 
-                      ? "border-rose-900/50 bg-neutral-900 text-neutral-300 hover:bg-rose-900 hover:border-rose-700" 
-                      : "border-neutral-200 bg-white hover:bg-amber-50 hover:border-amber-300";
-                  } else {
-                    if (i === currentQuiz.correctAnswerIndex) {
-                      btnClass += "bg-emerald-500 border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]"; // Correct
-                    } else if (i === selectedAnswer) {
-                      btnClass += "bg-rose-500 border-rose-400 text-white"; // Wrong selected
-                    } else {
-                      btnClass += gameState === 'boss_quiz' ? "border-transparent opacity-30 text-neutral-500" : "border-transparent opacity-40"; // Not selected
-                    }
-                  }
+                      ? "border-rose-900/40 bg-neutral-950/50 text-neutral-300 hover:bg-rose-950 hover:border-rose-700" 
+                      : "border-neutral-200 bg-neutral-50/50 text-neutral-700 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-950";
 
-                  return (
-                    <button
-                      key={i}
-                      disabled={selectedAnswer !== null}
-                      onClick={() => handleAnswerSelect(i)}
-                      className={btnClass}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {selectedAnswer !== null && (
-                <div className={`p-4 rounded-xl text-sm flex items-start gap-3 relative z-10 ${
-                  isAnswerCorrect 
-                    ? (gameState === 'boss_quiz' ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-50 text-emerald-800') 
-                    : (gameState === 'boss_quiz' ? 'bg-rose-900/50 text-rose-300 border border-rose-500/30' : 'bg-rose-50 text-rose-800')
-                }`}>
-                  {isAnswerCorrect ? <CheckCircle className="w-6 h-6 shrink-0" /> : <XCircle className="w-6 h-6 shrink-0" />}
-                  <div>
-                    <p className="font-bold text-base mb-1">
-                      {isAnswerCorrect 
-                        ? (gameState === 'boss_quiz' ? 'Xuất sắc! +10 Điểm & Nhận khiên.' : 'Chính xác! Bạn được hồi sinh.') 
-                        : 'Sai rồi! Hành trình kết thúc.'}
-                    </p>
-                    <p className="opacity-90 leading-relaxed mt-1.5">{currentQuiz.explanation}</p>
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => handleAnswerSelect(i)}
+                        className={btnClass}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-3 relative z-10 animate-fade-in">
+                  {/* Results Banner & Explanation */}
+                  <div className={`p-3 rounded-xl text-xs flex items-start gap-2.5 leading-relaxed ${
+                    isAnswerCorrect 
+                      ? (gameState === 'boss_quiz' ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-800 border border-emerald-200/50') 
+                      : (gameState === 'boss_quiz' ? 'bg-rose-950/60 text-rose-300 border border-rose-500/20' : 'bg-rose-50/85 text-rose-800 border border-rose-200/50')
+                  }`}>
+                    {isAnswerCorrect ? (
+                      <CheckCircle className="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" />
+                    ) : (
+                      <XCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs mb-1 text-left">
+                        {isAnswerCorrect 
+                          ? (gameState === 'boss_quiz' ? 'Đúng! +10 điểm & Hồi sinh!' : 'Chính xác! Bạn được hồi sinh.') 
+                          : 'Chưa chính xác!'}
+                      </p>
+                      <p className="opacity-90 text-[10px] leading-relaxed max-h-24 overflow-y-auto scrollbar-thin pr-1 text-left font-sans">
+                        {currentQuiz.explanation}
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Continue / Exits Action Button */}
+                  {isAnswerCorrect ? (
+                    <button
+                      onClick={handleContinueGame}
+                      className="w-full bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold py-2 sm:py-2.5 rounded-xl text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      Tiếp Tục Chơi 🚀
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setBestScore(Math.max(bestScore, scoreRef.current));
+                        setGameState('dead');
+                        setSelectedAnswer(null);
+                        setIsAnswerCorrect(null);
+                      }}
+                      className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 sm:py-2.5 rounded-xl text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      Xem Kết Quả 💀
+                    </button>
+                  )}
                 </div>
               )}
             </div>
