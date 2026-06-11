@@ -18,30 +18,34 @@ service cloud.firestore {
 
     // DiscussionPost Validation
     function isValidDiscussionPost(data) {
-      return data.keys().hasAll(['id', 'author', 'role', 'avatarColor', 'title', 'content', 'category', 'likes', 'repliesCount', 'createdAt'])
-        && (data.keys().size() == 10 || (data.keys().size() == 11 && data.keys().hasAll(['authorUid']) && data.authorUid is string && data.authorUid == request.auth.uid))
+      return data.keys().hasAll(['id', 'author', 'avatarColor', 'title', 'content', 'category', 'likes', 'repliesCount', 'createdAt'])
+        && data.keys().hasOnly(['id', 'author', 'role', 'avatarColor', 'title', 'content', 'category', 'likes', 'repliesCount', 'createdAt', 'authorUid', 'avatarUrl'])
         && data.id is string && data.id.size() <= 128
         && data.author is string && data.author.size() <= 100
-        && data.role is string && (data.role == 'Giảng viên' || data.role == 'Trợ lý học thuật' || data.role == 'Sinh viên' || data.role == 'Người nghiên cứu')
+        && (!data.keys().hasAny(['role']) || (data.role is string))
         && data.avatarColor is string && data.avatarColor.size() <= 50
         && data.title is string && data.title.size() <= 200
         && data.content is string && data.content.size() <= 5000
         && data.category is string && data.category.size() <= 100
         && (data.likes is int || data.likes is float) && data.likes >= 0
         && (data.repliesCount is int || data.repliesCount is float) && data.repliesCount >= 0
-        && data.createdAt == request.time;
+        && data.createdAt == request.time
+        && (!data.keys().hasAny(['authorUid']) || data.authorUid == null || (data.authorUid is string && data.authorUid == request.auth.uid))
+        && (!data.keys().hasAny(['avatarUrl']) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1000));
     }
 
     // Comment Validation
     function isValidComment(data) {
-      return data.keys().hasAll(['id', 'author', 'role', 'avatarColor', 'content', 'createdAt'])
-        && (data.keys().size() == 6 || (data.keys().size() == 7 && data.keys().hasAll(['authorUid']) && data.authorUid is string && data.authorUid == request.auth.uid))
+      return data.keys().hasAll(['id', 'author', 'avatarColor', 'content', 'createdAt'])
+        && data.keys().hasOnly(['id', 'author', 'role', 'avatarColor', 'content', 'createdAt', 'authorUid', 'avatarUrl'])
         && data.id is string && data.id.size() <= 128
         && data.author is string && data.author.size() <= 100
-        && data.role is string && data.role.size() <= 100
+        && (!data.keys().hasAny(['role']) || (data.role is string))
         && data.avatarColor is string && data.avatarColor.size() <= 50
         && data.content is string && data.content.size() <= 2000
-        && data.createdAt == request.time;
+        && data.createdAt == request.time
+        && (!data.keys().hasAny(['authorUid']) || data.authorUid == null || (data.authorUid is string && data.authorUid == request.auth.uid))
+        && (!data.keys().hasAny(['avatarUrl']) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 1000));
     }
 
     // Like Document Validation
@@ -57,7 +61,7 @@ service cloud.firestore {
       return data.keys().hasAll(['uid'])
         && data.uid is string && data.uid == request.auth.uid
         && (!data.keys().hasAny(['name']) || (data.name is string && data.name.size() <= 100))
-        && (!data.keys().hasAny(['role']) || (data.role is string && (data.role == 'Sinh viên' || data.role == 'Người nghiên cứu')))
+        && (!data.keys().hasAny(['role']) || (data.role is string))
         && (!data.keys().hasAny(['email']) || (data.email is string))
         && (!data.keys().hasAny(['avatarUrl']) || (data.avatarUrl is string))
         && (!data.keys().hasAny(['progress']) || (data.progress is map))

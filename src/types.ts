@@ -46,7 +46,7 @@ export interface Book {
 export interface Comment {
   id: string;
   author: string;
-  role: string;
+  role?: string;
   avatarColor: string;
   avatarUrl?: string; // New field for user uploaded avatar
   content: string;
@@ -57,7 +57,7 @@ export interface Comment {
 export interface DiscussionPost {
   id: string;
   author: string;
-  role: "Giảng viên" | "Trợ lý học thuật" | "Sinh viên" | "Người nghiên cứu";
+  role?: "Giảng viên" | "Trợ lý học thuật" | "Sinh viên" | "Người nghiên cứu";
   avatarColor: string;
   avatarUrl?: string; // New field for user uploaded avatar
   title: string;
@@ -84,10 +84,11 @@ export interface UserProfile {
   name: string;
   email: string;
   avatarUrl?: string;
-  role: string;
+  role?: string;
   progress?: UserProgress;
   bestScores?: {
     flappy?: number;
     memory?: number;
+    penalty?: number;
   };
 }

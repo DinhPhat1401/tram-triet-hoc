@@ -45,6 +45,7 @@ import PhilosophicalCursor from "./components/PhilosophicalCursor";
 import PhilosophersGallery from "./components/PhilosophersGallery";
 import FlappyPhilosopher from "./components/FlappyPhilosopher";
 import PhilosophicalMemory from "./components/PhilosophicalMemory";
+import PenaltyGoalkeeper from "./components/PenaltyGoalkeeper";
 import AuthModal from "./components/AuthModal";
 import UserProfileModal from "./components/UserProfileModal";
 import anhHocThuat from "./anh_hoc_thuat.png";
@@ -75,7 +76,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showIntroModal, setShowIntroModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [selectedGameId, setSelectedGameId] = useState<"flappy" | "memory" | null>(null);
+  const [selectedGameId, setSelectedGameId] = useState<"flappy" | "memory" | "penalty" | null>(null);
 
   // Forum Threads State synced with Firestore
   const [forumPosts, setForumPosts] = useState<DiscussionPost[]>([]);
@@ -788,10 +789,10 @@ export default function App() {
 
     const contentToPost = commentInput;
     setCommentInput(""); // Clear immediately for instant client response
-    await executeAddComment(postId, userProfile.name, userProfile.role || "Sinh viên", userProfile.avatarUrl || null, contentToPost);
+    await executeAddComment(postId, userProfile.name, userProfile.avatarUrl || null, contentToPost);
   };
 
-  const executeAddComment = async (postId: string, authorName: string, authorRole: string, avatarUrl: string | null, content: string) => {
+  const executeAddComment = async (postId: string, authorName: string, avatarUrl: string | null, content: string) => {
     const replyId = "comment-" + Date.now();
     const colors = ["bg-amber-500", "bg-emerald-500", "bg-blue-500", "bg-indigo-500", "bg-rose-500", "bg-purple-500", "bg-pink-500", "bg-teal-500"];
     const hash = authorName.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -800,7 +801,7 @@ export default function App() {
     const newComment = {
       id: replyId,
       author: authorName,
-      role: authorRole,
+      
       avatarColor: avatarColor,
       content: content,
       timestamp: new Date().toLocaleDateString("vi-VN") + " " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
@@ -833,7 +834,7 @@ export default function App() {
       await setDoc(replyRef, {
         id: replyId,
         author: authorName,
-        role: authorRole,
+        
         avatarColor: avatarColor,
         avatarUrl: avatarUrl,
         content: content,
@@ -1006,7 +1007,7 @@ export default function App() {
       if (pendingPostIdToComment && commentInput.trim()) {
         const contentToPost = commentInput;
         setCommentInput("");
-        executeAddComment(pendingPostIdToComment, name, tempCommenterRole, contentToPost);
+        executeAddComment(pendingPostIdToComment, name, null, contentToPost);
         setPendingPostIdToComment(null);
       }
     } catch (err) {
@@ -1034,8 +1035,8 @@ export default function App() {
     const newPost = {
       id: threadId,
       author: cleanAuthor,
-      role: currentRole,
-      avatarColor: currentRole === "Sinh viên" ? "bg-cyan-700" : "bg-purple-800",
+      
+      avatarColor: "bg-cyan-700",
       title: newPostTitle,
       content: newPostContent,
       category: newPostCategory,
@@ -1065,8 +1066,8 @@ export default function App() {
       await setDoc(postRef, {
         id: threadId,
         author: cleanAuthor,
-        role: currentRole,
-        avatarColor: currentRole === "Sinh viên" ? "bg-cyan-700" : "bg-purple-800",
+        
+        avatarColor: "bg-cyan-700",
         avatarUrl: avatarUrl,
         title: newPostTitle,
         content: newPostContent,
@@ -2748,42 +2749,6 @@ export default function App() {
                     </motion.button>
                   </div>
 
-                  {/* Current identity card */}
-                  <div className="bg-neutral-50/80 border border-neutral-200/60 rounded-2xl p-4 flex items-center justify-between shadow-xs">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 ${
-                        currentDisplayRole === "Sinh viên" ? "bg-cyan-700" : "bg-purple-800"
-                      }`}>
-                        {currentDisplayName ? currentDisplayName.charAt(0).toUpperCase() : "?"}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-[9px] text-neutral-400 font-sans font-semibold uppercase tracking-wider">Danh tính thảo luận</div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-serif text-xs font-bold text-neutral-800 truncate max-w-[125px]" title={currentDisplayName || "Học viên ẩn danh"}>
-                            {currentDisplayName || "Học viên ẩn danh"}
-                          </span>
-                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
-                            currentDisplayRole === "Sinh viên"
-                              ? "bg-cyan-50 border border-cyan-100 text-cyan-800"
-                              : "bg-purple-50 border border-purple-100 text-purple-800"
-                          }`}>
-                            {currentDisplayRole}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                     <button
-                      onClick={() => {
-                        setTempCommenterName(currentDisplayName);
-                        setTempCommenterRole(currentDisplayRole as any);
-                        setIdentityError(null);
-                        setShowCommenterNameModal(true);
-                      }}
-                      className="text-[11px] text-primary hover:text-opacity-80 font-bold flex items-center gap-1 border border-primary/20 hover:border-primary/40 px-2.5 py-1.5 rounded-xl bg-white transition-all cursor-pointer shadow-2xs"
-                    >
-                      <Edit className="w-3 h-3" /> Sửa danh tính
-                    </button>
-                  </div>
 
                   {/* Forum Threads list wrapper */}
                   <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
@@ -2881,9 +2846,6 @@ export default function App() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="font-sans font-bold text-xs text-neutral-800">{post.author}</span>
-                                <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
-                                  {post.role}
-                                </span>
                               </div>
                               <p className="text-[10px] text-neutral-400 font-mono mt-0.5">
                                 Đăng lúc: {post.timestamp}
@@ -2942,9 +2904,6 @@ export default function App() {
                                         {comment.author.charAt(0).toUpperCase()}
                                       </div>
                                       <span className="font-bold text-xs text-neutral-800">{comment.author}</span>
-                                      <span className="text-[9px] bg-neutral-200 text-neutral-600 font-semibold px-1.5 py-0.5 rounded">
-                                        {comment.role}
-                                      </span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <span className="text-[9px] text-neutral-400 font-mono">{comment.timestamp}</span>
@@ -2995,20 +2954,8 @@ export default function App() {
                             </div>
                             <div className="flex items-center justify-between gap-2 flex-wrap text-[10px] text-neutral-400 mt-1.5 leading-normal">
                               <span>
-                                ⚠️ Đăng nhận xét với tư cách: <strong className="text-neutral-700">{currentDisplayName || "Học viên ẩn danh"} ({currentDisplayRole})</strong>
+                                ⚠️ Đăng nhận xét với tư cách: <strong className="text-neutral-700">{currentDisplayName || "Học viên ẩn danh"} </strong>
                               </span>
-                              {!auth.currentUser && (
-                                <button
-                                  onClick={() => {
-                                    setTempCommenterName(currentDisplayName);
-                                    setTempCommenterRole(currentDisplayRole as any);
-                                    setShowCommenterNameModal(true);
-                                  }}
-                                  className="text-primary hover:underline font-bold cursor-pointer inline-flex items-center gap-0.5 shrink-0"
-                                >
-                                  <Edit className="w-2.5 h-2.5" /> Đổi danh tính
-                                </button>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -3069,19 +3016,7 @@ export default function App() {
                       className="w-full text-xs border rounded-lg px-3 py-2 bg-neutral-100 outline-none text-neutral-500 font-medium cursor-not-allowed"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-sans font-bold text-neutral-405 uppercase tracking-wide">
-                      Vị trí / Vai trò thảo luận *
-                    </label>
-                    <input
-                      required
-                      type="text"
-                      readOnly
-                      placeholder="Chưa thiết lập vai trò"
-                      value={currentDisplayRole || ""}
-                      className="w-full text-xs border rounded-lg px-3 py-2 bg-neutral-100 outline-none text-neutral-500 font-medium cursor-not-allowed"
-                    />
-                  </div>
+
                 </div>
                 {!currentDisplayName && (
                   <div className="text-center p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1.5">
@@ -3444,20 +3379,6 @@ export default function App() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">
-                  Vai trò học tập
-                </label>
-                <select
-                  value={tempCommenterRole}
-                  onChange={(e) => setTempCommenterRole(e.target.value as any)}
-                  className="w-full text-xs border border-neutral-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/20 bg-white"
-                  disabled={isUpdatingIdentity}
-                >
-                  <option value="Sinh viên">Sinh viên</option>
-                  <option value="Người nghiên cứu">Người nghiên cứu</option>
-                </select>
-              </div>
             </div>
 
             <button
@@ -3546,7 +3467,7 @@ export default function App() {
               </div>
 
               {/* Game Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
                 {/* Flappy Philosopher Card */}
                 <div className="group bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 flex flex-col justify-between hover:shadow-2xl hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300">
                   <div className="space-y-4">
@@ -3618,14 +3539,52 @@ export default function App() {
                     Vào chơi ngay 🧩
                   </button>
                 </div>
+
+                {/* Penalty Goalkeeper Card */}
+                <div className="group bg-white rounded-3xl border border-neutral-200 p-6 sm:p-8 flex flex-col justify-between hover:shadow-2xl hover:border-emerald-400/50 hover:-translate-y-1 transition-all duration-300">
+                  <div className="space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-3xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
+                      ⚽
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-serif text-xl sm:text-2xl font-bold text-primary">Thủ Môn Triết Học</h3>
+                        <span className="text-[10px] px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 font-bold uppercase">Khó</span>
+                      </div>
+                      <p className="text-xs text-neutral-500 leading-relaxed">
+                        Hóa thân thành thủ môn cản phá 10 loạt sút luân lưu. Trả lời đúng và nhanh các câu hỏi trắc nghiệm để bảo vệ khung thành và giành điểm thưởng thời gian!
+                      </p>
+                    </div>
+                    
+                    <div className="h-px bg-neutral-100 my-4"></div>
+
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block text-left">Điểm nổi bật:</span>
+                      <ul className="text-xs text-neutral-600 space-y-1.5 list-disc pl-4 leading-normal text-left">
+                        <li>Luyện trắc nghiệm 10 câu ngẫu nhiên.</li>
+                        <li>Điểm thưởng theo thời gian suy nghĩ (Time Bonus).</li>
+                        <li>Hiệu ứng cản phá bóng vui nhộn.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedGameId("penalty")}
+                    className="w-full bg-primary hover:bg-neutral-900 text-white font-bold text-xs py-3.5 rounded-2xl transition-all shadow-md cursor-pointer mt-6 flex items-center justify-center gap-2 group-hover:bg-emerald-600"
+                  >
+                    Vào chơi ngay 🧤
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
             <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center animate-fade-in">
               {selectedGameId === "flappy" ? (
                 <FlappyPhilosopher onBackToHub={() => setSelectedGameId(null)} />
-              ) : (
+              ) : selectedGameId === "memory" ? (
                 <PhilosophicalMemory onBackToHub={() => setSelectedGameId(null)} />
+              ) : (
+                <PenaltyGoalkeeper onBackToHub={() => setSelectedGameId(null)} />
               )}
             </div>
           )}

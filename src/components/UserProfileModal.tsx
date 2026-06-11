@@ -314,6 +314,18 @@ export default function UserProfileModal({ isOpen, onClose, uid }: UserProfileMo
                         {profile.bestScores?.memory || 0} <span className="text-xs text-neutral-400 font-normal">pts</span>
                       </span>
                     </div>
+
+                    <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-neutral-100 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                          <span className="text-lg">⚽</span>
+                        </div>
+                        <span className="font-medium text-sm">Thủ Môn Triết Học</span>
+                      </div>
+                      <span className="font-bold text-lg text-emerald-700">
+                        {profile.bestScores?.penalty || 0} <span className="text-xs text-neutral-400 font-normal">pts</span>
+                      </span>
+                    </div>
                   </div>
 
                 </div>
