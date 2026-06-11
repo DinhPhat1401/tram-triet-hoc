@@ -158,12 +158,12 @@ export default function PenaltyGoalkeeper({ onBackToHub }: PenaltyGoalkeeperProp
 
     if (correct) {
       // Caught
-      setBallPos({ x: '50%', y: '35%', scale: 0.6 });
+      setBallPos({ x: '50%', y: '55%', scale: 0.6 });
       setKeeperPos({ x: '50%', rotate: 0 });
     } else {
       // Missed / Goal
-      setBallPos({ x: isLeft ? '20%' : '80%', y: '25%', scale: 0.5 }); // Top corner
-      setKeeperPos({ x: isLeft ? '80%' : '20%', rotate: isLeft ? 90 : -90 }); // Dive opposite
+      setBallPos({ x: isLeft ? '30%' : '70%', y: '25%', scale: 0.5 }); // Top corner
+      setKeeperPos({ x: isLeft ? '70%' : '30%', rotate: isLeft ? 90 : -90 }); // Dive opposite
     }
 
     // Wait for animation, then show explanation
@@ -244,7 +244,7 @@ export default function PenaltyGoalkeeper({ onBackToHub }: PenaltyGoalkeeperProp
             <div className="absolute inset-0 border-x-4 border-t-4 border-white/20 mx-12 mt-4 opacity-50 transform origin-bottom perspective-100 rotateX-12"></div>
             
             {/* Goal Post */}
-            <div className="absolute top-4 left-[15%] right-[15%] h-[120px] border-t-8 border-x-8 border-white/90 shadow-2xl z-10">
+            <div className="absolute top-4 left-[25%] right-[25%] h-[120px] border-t-8 border-x-8 border-white/90 shadow-2xl z-10">
               {/* Net pattern */}
               <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%, #fff), linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%, #fff)', backgroundSize: '10px 10px', backgroundPosition: '0 0, 5px 5px' }}></div>
             </div>
