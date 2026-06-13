@@ -339,6 +339,7 @@ export default function UserProfileModal({ isOpen, onClose, uid }: UserProfileMo
                         localStorage.removeItem('tram_hoc_progress');
                         await signOut(auth);
                         onClose();
+                        window.location.reload();
                       } catch (err) {
                         console.error("Lỗi đăng xuất:", err);
                       }

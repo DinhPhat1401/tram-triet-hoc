@@ -424,7 +424,7 @@ export default function App() {
     if (auth.currentUser) {
       setDoc(doc(db, "userProfiles", auth.currentUser.uid), { uid: auth.currentUser.uid, progress: progress }, { merge: true }).catch(console.error);
     }
-  }, [progress, auth.currentUser]);
+  }, [progress]);
 
   // Turn off cursor effect when playing game
   useEffect(() => {
@@ -512,11 +512,31 @@ export default function App() {
             }
 
             if (data.progress) {
-              setProgress(data.progress);
+              setProgress(prev => {
+                const cloud = data.progress;
+                const mergedScores = { ...prev.quizScores };
+                for (const [stationId, cloudScore] of Object.entries(cloud.quizScores || {})) {
+                   const localScore = prev.quizScores[Number(stationId)] || 0;
+                   mergedScores[Number(stationId)] = Math.max(localScore, Number(cloudScore));
+                }
+                return {
+                  currentStationId: Math.max(prev.currentStationId || 1, cloud.currentStationId || 1),
+                  completedLessons: Array.from(new Set([...(prev.completedLessons || []), ...(cloud.completedLessons || [])])),
+                  quizScores: mergedScores,
+                  completedQuizzes: Array.from(new Set([...(prev.completedQuizzes || []), ...(cloud.completedQuizzes || [])])),
+                  savedQuotes: Array.from(new Set([...(prev.savedQuotes || []), ...(cloud.savedQuotes || [])])),
+                  readBooks: Array.from(new Set([...(prev.readBooks || []), ...(cloud.readBooks || [])])),
+                };
+              });
+            } else {
+              // Trigger a save of local progress to cloud if cloud progress is missing
+              setProgress(prev => ({ ...prev }));
             }
           } else {
             console.log("No profile on Firestore yet for this UID");
             setUserProfile(null);
+            // Trigger save of local progress for new users
+            setProgress(prev => ({ ...prev }));
           }
           } catch (err) {
             console.warn("Failed to fetch user profile, switching to Local Sandbox Mode:", err);
