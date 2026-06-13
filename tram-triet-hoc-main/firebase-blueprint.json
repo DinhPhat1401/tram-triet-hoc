@@ -1,0 +1,156 @@
+{
+  "entities": {
+    "DiscussionPost": {
+      "title": "DiscussionPost",
+      "description": "Represents a philosophical forum discussion thread",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "Giảng viên",
+            "Trợ lý học thuật",
+            "Sinh viên",
+            "Người nghiên cứu"
+          ]
+        },
+        "avatarColor": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "likes": {
+          "type": "integer"
+        },
+        "repliesCount": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "author",
+        "role",
+        "avatarColor",
+        "title",
+        "content",
+        "category",
+        "likes",
+        "repliesCount",
+        "createdAt"
+      ]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Represents a reply comment on a discussion thread",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "avatarColor": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "author",
+        "role",
+        "avatarColor",
+        "content",
+        "createdAt"
+      ]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "Represents a user's record of liking a discussion post",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "createdAt"
+      ]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Represents a unique user identity reserved on Firebase",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "name",
+        "role",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/forumPosts": {
+      "schema": "DiscussionPost",
+      "description": "The top-level discussion thread posts"
+    },
+    "/forumPosts/{postId}/replies": {
+      "schema": "Comment",
+      "description": "The list of reply comments under a specific discussion post"
+    },
+    "/forumPosts/{postId}/likes": {
+      "schema": "Like",
+      "description": "Active likes records in a subcollection under a specific post to prevent race conditions on like actions"
+    },
+    "/userProfiles": {
+      "schema": "UserProfile",
+      "description": "Unique user identity profiles reserved by users to prevent identity duplicates"
+    }
+  }
+}

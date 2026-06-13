@@ -62,8 +62,7 @@ service cloud.firestore {
         && (!data.keys().hasAny(['email']) || (data.email is string))
         && (!data.keys().hasAny(['avatarUrl']) || (data.avatarUrl is string))
         && (!data.keys().hasAny(['progress']) || (data.progress is map))
-        && (!data.keys().hasAny(['bestScores']) || (data.bestScores is map))
-        && (!data.keys().hasAny(['likedPosts']) || (data.likedPosts is map));
+        && (!data.keys().hasAny(['bestScores']) || (data.bestScores is map));
     }
 
     // Collection: forumPosts
@@ -73,28 +72,48 @@ service cloud.firestore {
       
       // Updates: allow likes change, repliesCount change, or profile author/role updates
       allow update: if isSignedIn() && isValidId(postId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.avatarColor == resource.data.avatarColor
+        && request.resource.data.title == resource.data.title
+        && request.resource.data.content == resource.data.content
+        && request.resource.data.category == resource.data.category
+        && request.resource.data.createdAt == resource.data.createdAt
         && (
           // Action 1: Like / Unlike
           (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+            request.resource.data.author == resource.data.author
             && (request.resource.data.likes == resource.data.likes + 1 || request.resource.data.likes == resource.data.likes - 1)
+            && request.resource.data.repliesCount == resource.data.repliesCount
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
           )
           ||
-          // Action 2 & 3: Comment count change (repliesCount increment / decrement)
+          // Action 2: Add Comment
           (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['repliesCount'])
-            && (request.resource.data.repliesCount == resource.data.repliesCount + 1 || request.resource.data.repliesCount == resource.data.repliesCount - 1)
+            request.resource.data.author == resource.data.author
+            && request.resource.data.repliesCount == resource.data.repliesCount + 1
+            && request.resource.data.likes == resource.data.likes
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['repliesCount'])
           )
           ||
-          // Action 4: Update Post Author Identity (e.g. swept nickname changes)
+          // Action 3: Delete Comment
           (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['author', 'authorUid'])
-            && request.resource.data.authorUid == request.auth.uid
-            && (
-              !resource.data.keys().hasAll(['authorUid'])
-              || resource.data.authorUid == request.auth.uid
-              || resource.data.authorUid == null
+            request.resource.data.author == resource.data.author
+            && request.resource.data.repliesCount == resource.data.repliesCount - 1
+            && request.resource.data.likes == resource.data.likes
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['repliesCount'])
+          )
+          ||
+          // Action 4: Update Post Author Identity
+          (
+            (
+              (resource.data.keys().hasAll(['authorUid']) && resource.data.authorUid == request.auth.uid)
+              ||
+              (!resource.data.keys().hasAll(['authorUid']) && exists(/databases/$(database)/documents/userProfiles/$(resource.data.author)) && get(/databases/$(database)/documents/userProfiles/$(resource.data.author)).data.uid == request.auth.uid)
             )
+            && request.resource.data.likes == resource.data.likes
+            && request.resource.data.repliesCount == resource.data.repliesCount
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['author', 'authorUid'])
+            && request.resource.data.authorUid == request.auth.uid
           )
         );
       
@@ -105,14 +124,17 @@ service cloud.firestore {
     match /forumPosts/{postId}/replies/{replyId} {
       allow read: if true;
       allow create: if isSignedIn() && isValidId(replyId) && isValidComment(request.resource.data) && request.resource.data.id == replyId;
-      allow update: if isSignedIn() && isValidId(replyId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['author', 'authorUid'])
-        && request.resource.data.authorUid == request.auth.uid
+      allow update: if isSignedIn()
         && (
-          !resource.data.keys().hasAll(['authorUid'])
-          || resource.data.authorUid == request.auth.uid
-          || resource.data.authorUid == null
-        );
+          (resource.data.keys().hasAll(['authorUid']) && resource.data.authorUid == request.auth.uid)
+          ||
+          (!resource.data.keys().hasAll(['authorUid']) && exists(/databases/$(database)/documents/userProfiles/$(resource.data.author)) && get(/databases/$(database)/documents/userProfiles/$(resource.data.author)).data.uid == request.auth.uid)
+        )
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.content == resource.data.content
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['author', 'authorUid'])
+        && request.resource.data.authorUid == request.auth.uid;
       allow delete: if isSignedIn(); // Allow deleting comment
     }
 
@@ -121,11 +143,6 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn() && isValidId(likeId) && isValidLike(request.resource.data) && likeId == request.auth.uid;
       allow delete: if isSignedIn() && isValidId(likeId) && likeId == request.auth.uid;
-    }
-
-    // Collection Group "likes" for query across threads
-    match /{path=**}/likes/{likeId} {
-      allow read: if true;
     }
 
     // Collection: userProfiles

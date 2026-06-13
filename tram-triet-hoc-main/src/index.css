@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-primary: #002045;
+  --color-secondary-container: #fed65b;
+  --color-on-secondary-container: #745c00;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container-high: #dce9ff;
+}
+
+@layer utilities {
+  .hero-pattern {
+    background-color: #f8f9ff;
+    background-image: radial-gradient(#d5e3fc 1.5px, transparent 1.5px);
+    background-size: 30px 30px;
+  }
+  
+  .glass-card {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(26, 54, 93, 0.1);
+  }
+
+  .transform-style-3d {
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 0 !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    background-image: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Completely vanish non-printable elements from layout calculation to avoid multi-page generation */
+  nav, footer, button, .no-print, [role="dialog"], .fixed, .absolute:not(#printable-certificate):not(#printable-certificate *) {
+    display: none !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide absolutely everything by default to prevent leaking surrounding web items */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Clean out backgrounds, shadows, and borders of all underlying parent wrappers so they do not bleed into print */
+  div:not(#printable-certificate):not(#printable-certificate *) {
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Only allow the `#printable-certificate` and its direct children to show on print */
+  #printable-certificate,
+  #printable-certificate * {
+    visibility: visible !important;
+  }
+
+  /* Center the certificate perfectly on landscape A4, stretch it with double border, eliminate web background dots */
+  #printable-certificate {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 27.2cm !important;
+    height: 18.5cm !important;
+    box-sizing: border-box !important;
+    border: 12px double #d97706 !important;
+    box-shadow: none !important;
+    padding: 3.2rem !important;
+    background-color: #fcfbf9 !important;
+    border-radius: 0.5rem !important;
+    background-image: none !important; /* Hide dot grids */
+    z-index: 9999999 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+
+  .certificate-dots,
+  #printable-certificate .pointer-events-none {
+    display: none !important;
+    background-image: none !important;
+  }
+}
+

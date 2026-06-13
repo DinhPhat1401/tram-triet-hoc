@@ -1,0 +1,6 @@
+{
+  "name": "Trạm Học Triết học Mác - Lênin",
+  "description": "Nền tảng học hỏi chuyên sâu về Triết học Mác - Lênin, bao gồm các trạm kiến thức, lộ trình chi tiết và câu hỏi trắc nghiệm tự ôn tập.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

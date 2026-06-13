@@ -65,8 +65,7 @@ import {
   writeBatch,
   getDocs,
   getDoc,
-  where,
-  collectionGroup
+  where
 } from "firebase/firestore";
 import { db, auth, initFirebaseAuth, OperationType, handleFirestoreError, signOut } from "./firebase";
 import firebaseConfig from "../firebase-applet-config.json";
@@ -87,14 +86,9 @@ export default function App() {
   const [isFirebaseOffline, setIsFirebaseOffline] = useState(false);
   const [activePostComments, setActivePostComments] = useState<Comment[]>([]);
   const [myLikes, setMyLikes] = useState<{[postId: string]: boolean}>({});
-  const [likingPosts, setLikingPosts] = useState<{[postId: string]: boolean}>({});
 
   // active Thread selected in discussion board
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  
-  // Custom delete confirmation states (bypasses window.confirm iframe issue)
-  const [postIdToConfirmDelete, setPostIdToConfirmDelete] = useState<string | null>(null);
-  const [commentIdToConfirmDelete, setCommentIdToConfirmDelete] = useState<string | null>(null);
 
   // Forum input forms
   const [newPostTitle, setNewPostTitle] = useState("");
@@ -453,7 +447,6 @@ export default function App() {
   // Sync with Firestore
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
-    let unsubscribeProfile: (() => void) | undefined;
     
     initFirebaseAuth(async (success, error) => {
       if (!success) {
@@ -484,10 +477,6 @@ export default function App() {
         setCurrentUser(user);
         if (user && user.isAnonymous) {
           console.log("Found legacy anonymous session, signing out...");
-          if (unsubscribeProfile) {
-            unsubscribeProfile();
-            unsubscribeProfile = undefined;
-          }
           await signOut(auth);
           setUserProfile(null);
           setIsAuthReady(true);
@@ -496,66 +485,52 @@ export default function App() {
 
         if (user) {
           const currentUid = user.uid;
-          const docRef = doc(db, "userProfiles", currentUid);
-          
-          if (unsubscribeProfile) {
-            unsubscribeProfile();
-          }
-
-          unsubscribeProfile = onSnapshot(docRef, (docSnap) => {
-            if (docSnap.exists()) {
-              const data = docSnap.data();
-              console.log("Loaded student profile from Firestore (live):", data);
+          try {
+            const docRef = doc(db, "userProfiles", currentUid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            console.log("Loaded student profile from Firestore:", data);
+            
+            // Fix partial profiles created by progress merge
+            const defaultName = user.displayName || user.email?.split('@')[0] || "Người dùng";
+            const fullProfile = {
+              ...data,
+              name: data.name || defaultName,
+              email: data.email || user.email || "",
               
-              // Fix partial profiles created by progress merge
-              const defaultName = user.displayName || user.email?.split('@')[0] || "Người dùng";
-              const fullProfile = {
-                ...data,
-                name: data.name || defaultName,
-                email: data.email || user.email || "",
-                likedPosts: data.likedPosts || {},
-              };
-              
-              setUserProfile(fullProfile);
-              setMyLikes(data.likedPosts || {});
+            };
+            
+            setUserProfile(fullProfile);
 
-              // Auto-heal missing fields in Firestore so Leaderboard displays correctly
-              if (!data.name || !data.email) {
-                updateDoc(docRef, {
-                  name: fullProfile.name,
-                  email: fullProfile.email,
-                }).catch(err => console.error("Auto-heal failed:", err));
-              }
-
-              if (data.progress) {
-                setProgress(data.progress);
-              }
-            } else {
-              console.log("No profile on Firestore yet for this UID");
-              setUserProfile(null);
-              setMyLikes({});
+            // Auto-heal missing fields in Firestore so Leaderboard displays correctly
+            if (!data.name || !data.email) {
+              updateDoc(docRef, {
+                name: fullProfile.name,
+                email: fullProfile.email,
+                              }).catch(err => console.error("Auto-heal failed:", err));
             }
-            setIsAuthReady(true);
-          }, (err) => {
-            console.warn("Failed to listen to user profile, switching to Local Sandbox Mode:", err);
-            setIsFirebaseOffline(true);
-            setIsAuthReady(true);
-          });
-        } else {
-          if (unsubscribeProfile) {
-            unsubscribeProfile();
-            unsubscribeProfile = undefined;
+
+            if (data.progress) {
+              setProgress(data.progress);
+            }
+          } else {
+            console.log("No profile on Firestore yet for this UID");
+            setUserProfile(null);
           }
+          } catch (err) {
+            console.warn("Failed to fetch user profile, switching to Local Sandbox Mode:", err);
+            setIsFirebaseOffline(true);
+          }
+        } else {
           setUserProfile(null);
-          setMyLikes({});
-          setIsAuthReady(true);
         }
+        setIsAuthReady(true);
       });
     });
 
     return () => {
       if (unsubscribe) unsubscribe();
-      if (unsubscribeProfile) unsubscribeProfile();
     };
   }, []);
 
@@ -632,7 +607,7 @@ export default function App() {
           category: d.category || "Chung",
           likes: d.likes || 0,
           timestamp: tsStr,
-          hasLiked: false,
+          hasLiked: myLikes[docSnap.id] || false,
           replies: new Array(d.repliesCount || 0).fill(null) as any,
           authorUid: d.authorUid || null
         });
@@ -654,14 +629,7 @@ export default function App() {
     });
 
     return unsubscribe;
-  }, [isAuthReady, isFirebaseOffline]);
-
-  const mappedForumPosts = React.useMemo(() => {
-    return forumPosts.map((post) => ({
-      ...post,
-      hasLiked: myLikes[post.id] || false
-    }));
-  }, [forumPosts, myLikes]);
+  }, [isAuthReady, isFirebaseOffline, myLikes]);
 
   // Live snapshot listener for subcollection replies (comments) on selected post
   useEffect(() => {
@@ -713,8 +681,24 @@ export default function App() {
       }
     });
 
+    // Also fetch the current user's like state for this post
+    const uid = auth.currentUser?.uid;
+    let unsubscribeLike: (() => void) | undefined;
+    if (uid) {
+      const likeDocRef = doc(db, "forumPosts", selectedPostId, "likes", uid);
+      unsubscribeLike = onSnapshot(likeDocRef, (snapshot) => {
+        setMyLikes(prev => ({
+          ...prev,
+          [selectedPostId]: snapshot.exists()
+        }));
+      }, (err) => {
+        console.warn("Firestore likeDocRef subscription error, using local state instead:", err);
+      });
+    }
+
     return () => {
       unsubscribe();
+      if (unsubscribeLike) unsubscribeLike();
     };
   }, [selectedPostId, isAuthReady, isFirebaseOffline]);
 
@@ -731,11 +715,6 @@ export default function App() {
 
   // Thích (Like) a thread post of forum
   const handleLikePost = async (postId: string) => {
-    if (likingPosts[postId]) {
-      console.log("Like operation in progress for post:", postId);
-      return;
-    }
-
     const wasLiked = myLikes[postId];
 
     if (isFirebaseOffline) {
@@ -765,26 +744,12 @@ export default function App() {
       setIsAuthModalOpen(true);
       return;
     }
-
-    // Set lock for this post
-    setLikingPosts((prev) => ({ ...prev, [postId]: true }));
-
     const uid = auth.currentUser.uid;
     const likeDocRef = doc(db, "forumPosts", postId, "likes", uid);
     const postRef = doc(db, "forumPosts", postId);
-    const userProfileRef = doc(db, "userProfiles", uid);
-
-    const updatedLikes = { ...myLikes, [postId]: !wasLiked };
 
     // Optimistic UI updates
-    setMyLikes(updatedLikes);
-    setUserProfile((prev: any) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        likedPosts: updatedLikes
-      };
-    });
+    setMyLikes((prev) => ({ ...prev, [postId]: !wasLiked }));
     setForumPosts((posts) =>
       posts.map((post) => {
         if (post.id === postId) {
@@ -799,10 +764,6 @@ export default function App() {
     );
 
     try {
-      // 1. Persist the updated likedPosts map on the student's profile doc in Firestore (include uid to satisfy isValidUserProfile on first create)
-      await setDoc(userProfileRef, { uid: uid, likedPosts: updatedLikes }, { merge: true });
-
-      // 2. Perform regular transaction for post's subcollection & increment
       if (wasLiked) {
         await deleteDoc(likeDocRef);
         await updateDoc(postRef, {
@@ -820,31 +781,8 @@ export default function App() {
     } catch (e) {
       console.error("Failed to like/unlike post:", e);
       // Rollback optimistic state
-      const rollbackLikes = { ...myLikes, [postId]: !!wasLiked };
-      setMyLikes(rollbackLikes);
-      setUserProfile((prev: any) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          likedPosts: rollbackLikes
-        };
-      });
-      setForumPosts((posts) =>
-        posts.map((post) => {
-          if (post.id === postId) {
-            return {
-              ...post,
-              likes: wasLiked ? post.likes : Math.max(0, post.likes - 1),
-              hasLiked: !!wasLiked
-            };
-          }
-          return post;
-        })
-      );
+      setMyLikes((prev) => ({ ...prev, [postId]: wasLiked }));
       handleFirestoreError(e, OperationType.UPDATE, `forumPosts/${postId}`);
-    } finally {
-      // Unlock for this post
-      setLikingPosts((prev) => ({ ...prev, [postId]: false }));
     }
   };
 
@@ -1148,6 +1086,8 @@ export default function App() {
   };
 
   const handleDeletePost = async (postId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa không?")) return;
+
     if (isFirebaseOffline) {
       setForumPosts((posts) => {
         const updated = posts.filter((p) => p.id !== postId);
@@ -1155,7 +1095,6 @@ export default function App() {
         return updated;
       });
       setSelectedPostId(null);
-      setPostIdToConfirmDelete(null);
       return;
     }
 
@@ -1166,15 +1105,15 @@ export default function App() {
       await deleteDoc(postRef);
       setForumPosts((prev) => prev.filter((p) => p.id !== postId));
       setSelectedPostId(null);
-      setPostIdToConfirmDelete(null);
     } catch (e) {
-      setPostIdToConfirmDelete(null);
       console.error("Failed to delete post:", e);
       handleFirestoreError(e, OperationType.DELETE, `forumPosts/${postId}`);
     }
   };
 
   const handleDeleteComment = async (postId: string, commentId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa không?")) return;
+
     if (isFirebaseOffline) {
       setForumPosts((posts) => {
         const updated = posts.map((post) => {
@@ -1192,7 +1131,6 @@ export default function App() {
         return updated;
       });
       setActivePostComments((prev) => prev.filter((r) => r.id !== commentId));
-      setCommentIdToConfirmDelete(null);
       return;
     }
 
@@ -1200,48 +1138,14 @@ export default function App() {
     const replyRef = doc(db, "forumPosts", postId, "replies", commentId);
     const postRef = doc(db, "forumPosts", postId);
 
-    // Save state for rollback if failed
-    const rollbackComments = [...activePostComments];
-    
-    // Optimistic UI update
-    setActivePostComments((prev) => prev.filter((r) => r.id !== commentId));
-    setForumPosts((posts) =>
-      posts.map((post) => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            repliesCount: Math.max(0, (post.repliesCount || 0) - 1)
-          };
-        }
-        return post;
-      })
-    );
-    setCommentIdToConfirmDelete(null);
-
     try {
       await deleteDoc(replyRef);
-      try {
-        await updateDoc(postRef, {
-          repliesCount: increment(-1)
-        });
-      } catch (countError) {
-        console.warn("Failed to decrement repliesCount, but comment document itself was successfully deleted:", countError);
-      }
+      await updateDoc(postRef, {
+        repliesCount: increment(-1)
+      });
+      setActivePostComments((prev) => prev.filter((r) => r.id !== commentId));
     } catch (e) {
-      console.error("Failed to delete comment doc:", e);
-      // Rollback optimistic state
-      setActivePostComments(rollbackComments);
-      setForumPosts((posts) =>
-        posts.map((post) => {
-          if (post.id === postId) {
-            return {
-              ...post,
-              repliesCount: (post.repliesCount || 0) + 1
-            };
-          }
-          return post;
-        })
-      );
+      console.error("Failed to delete comment:", e);
       handleFirestoreError(e, OperationType.DELETE, `forumPosts/${postId}/replies/${commentId}`);
     }
   };
@@ -2849,7 +2753,7 @@ export default function App() {
                 <div className="lg:col-span-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-sans font-bold text-xs text-neutral-400 uppercase tracking-wider">
-                      Danh sách chủ đề ({mappedForumPosts.length})
+                      Danh sách chủ đề ({forumPosts.length})
                     </h3>
                     <motion.button
                       whileHover={{ scale: 1.03 }}
@@ -2870,12 +2774,12 @@ export default function App() {
 
                   {/* Forum Threads list wrapper */}
                   <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
-                    {mappedForumPosts.length === 0 ? (
+                    {forumPosts.length === 0 ? (
                       <div className="bg-white rounded-xl p-6 text-center border text-neutral-400 text-xs">
                         Chưa có cuộc thảo luận nào được bắt đầu. Hãy kích hoạt bài thảo luận đầu tiên!
                       </div>
                     ) : (
-                      mappedForumPosts.map((post) => {
+                      forumPosts.map((post) => {
                         const isSelected = selectedPostId === post.id;
                         return (
                           <motion.div
@@ -2903,21 +2807,10 @@ export default function App() {
                               {post.content}
                             </p>
                             <div className="flex items-center gap-3 mt-3 text-[10px] text-neutral-400 font-mono">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleLikePost(post.id);
-                                }}
-                                className={`flex items-center gap-1 font-semibold px-2 py-0.5 rounded transition duration-200 cursor-pointer ${
-                                  post.hasLiked 
-                                    ? "bg-rose-50 text-rose-600 hover:bg-rose-100" 
-                                    : "hover:bg-neutral-100 text-neutral-500 hover:text-neutral-700"
-                                }`}
-                                title={post.hasLiked ? "Bỏ thích" : "Thích"}
-                              >
-                                <Heart className={`w-3 h-3 transition-transform ${post.hasLiked ? "text-red-500 fill-red-500 animate-pulse" : "text-neutral-400"}`} />
-                                <span>{post.likes} thích</span>
-                              </button>
+                              <span className="flex items-center gap-1 font-semibold">
+                                <Heart className={`w-3 h-3 ${post.hasLiked ? "text-red-500 fill-red-500" : ""}`} />
+                                {post.likes} thích
+                              </span>
                             </div>
                           </motion.div>
                         );
@@ -2929,7 +2822,7 @@ export default function App() {
                 {/* Right side detail view: single thread + comments */}
                 <div className="lg:col-span-8">
                   {selectedPostId ? (() => {
-                    const post = mappedForumPosts.find((p) => p.id === selectedPostId);
+                    const post = forumPosts.find((p) => p.id === selectedPostId);
                     if (!post) return (
                       <div className="bg-white rounded-2xl p-12 text-center border text-neutral-400 text-xs">
                         Bài thảo luận đã bị xóa hoặc không hợp lệ. Quý học viên vui lòng chọn chủ đề bên trái.
@@ -2946,31 +2839,13 @@ export default function App() {
                               {post.category}
                             </span>
                             <div className="flex items-center gap-3">
-                              {((auth.currentUser && post.authorUid === auth.currentUser.uid) || (currentDisplayName && post.author === currentDisplayName)) && (
-                                postIdToConfirmDelete === post.id ? (
-                                  <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg p-1 animate-fade-in">
-                                    <span className="text-[10px] text-red-600 font-medium px-1">Chắc chắn xóa bài viết?</span>
-                                    <button
-                                      onClick={() => handleDeletePost(post.id)}
-                                      className="text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded text-[10px] cursor-pointer font-bold"
-                                    >
-                                      Có
-                                    </button>
-                                    <button
-                                      onClick={() => setPostIdToConfirmDelete(null)}
-                                      className="text-neutral-500 hover:text-neutral-700 bg-neutral-100 hover:bg-neutral-200 px-2 py-0.5 rounded text-[10px] cursor-pointer"
-                                    >
-                                      Không
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={() => setPostIdToConfirmDelete(post.id)}
-                                    className="text-red-500 hover:text-red-700 text-[11px] flex items-center gap-1 cursor-pointer transition-all border border-red-200 bg-red-50/10 hover:bg-red-50 px-2.5 py-1 rounded-lg"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" /> Xóa bài viết
-                                  </button>
-                                )
+                              {currentDisplayName && post.author === currentDisplayName && (
+                                <button
+                                  onClick={() => handleDeletePost(post.id)}
+                                  className="text-red-500 hover:text-red-700 text-[11px] flex items-center gap-1 cursor-pointer transition-all border border-red-200 bg-red-50/10 hover:bg-red-50 px-2.5 py-1 rounded-lg"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Xóa bài viết
+                                </button>
                               )}
                               <button
                                 onClick={() => setSelectedPostId(null)}
@@ -3054,32 +2929,14 @@ export default function App() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <span className="text-[9px] text-neutral-400 font-mono">{comment.timestamp}</span>
-                                      {((auth.currentUser && comment.authorUid === auth.currentUser.uid) || (currentDisplayName && comment.author === currentDisplayName)) && (
-                                        commentIdToConfirmDelete === comment.id ? (
-                                          <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 animate-fade-in">
-                                            <span className="text-[9px] text-red-600 font-medium">Xóa?</span>
-                                            <button
-                                              onClick={() => handleDeleteComment(post.id, comment.id)}
-                                              className="text-white bg-red-500 hover:bg-red-600 px-1 py-0.5 rounded text-[8px] font-bold cursor-pointer"
-                                            >
-                                              Có
-                                            </button>
-                                            <button
-                                              onClick={() => setCommentIdToConfirmDelete(null)}
-                                              className="text-neutral-500 hover:text-neutral-700 bg-neutral-100 hover:bg-neutral-200 px-1 py-0.5 rounded text-[8px] cursor-pointer"
-                                            >
-                                              Hủy
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <button
-                                            onClick={() => setCommentIdToConfirmDelete(comment.id)}
-                                            className="text-red-400 hover:text-red-600 p-1 hover:bg-neutral-100 rounded cursor-pointer transition-all"
-                                            title="Xóa bình luận"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </button>
-                                        )
+                                      {currentDisplayName && comment.author === currentDisplayName && (
+                                        <button
+                                          onClick={() => handleDeleteComment(post.id, comment.id)}
+                                          className="text-red-400 hover:text-red-600 p-1 hover:bg-neutral-105 rounded cursor-pointer transition-all"
+                                          title="Xóa bình luận"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
                                       )}
                                     </div>
                                   </div>
@@ -3268,7 +3125,7 @@ export default function App() {
                   </button>
                   <button
                     type="submit"
-                    disabled={!currentDisplayName || !newPostTitle.trim() || !newPostContent.trim()}
+                    disabled={!commenterName}
                     className="bg-primary hover:bg-opacity-95 disabled:bg-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all shadow-sm"
                   >
                     🚀 Công bố chủ đề
