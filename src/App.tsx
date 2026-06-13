@@ -1086,6 +1086,8 @@ export default function App() {
   };
 
   const handleDeletePost = async (postId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa không?")) return;
+
     if (isFirebaseOffline) {
       setForumPosts((posts) => {
         const updated = posts.filter((p) => p.id !== postId);
@@ -1110,6 +1112,8 @@ export default function App() {
   };
 
   const handleDeleteComment = async (postId: string, commentId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa không?")) return;
+
     if (isFirebaseOffline) {
       setForumPosts((posts) => {
         const updated = posts.map((post) => {
